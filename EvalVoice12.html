@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EvalVoice - Application d'aide à l'évaluation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    .container {
+      display: flex;
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .left-pane {
+      width: 50%;
+    }
+    .right-pane {
+      width: 50%;
+      padding-left: 20px;
+    }
+    .centre{
+     text-align: center;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+    input[type="file"], input[type="text"] {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: 1px solid #bdc3c7;
+      font-size: 16px;
+    }
+    #questionDisplay {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #bdc3c7;
+      border-radius: 5px;
+      min-height: 50px;
+      background-color: #ecf0f1;
+        width: calc(100% - 20px);
+    }
+    .input-group {
+      display: flex;
+      align-items: center;
+    }
+    .input-group button {
+      width: 40px;
+      height: 40px;
+      margin-left: 10px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 1px solid #bdc3c7;
+      border-radius: 5px;
+    }
+    .feedback {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .feedback span {
+      margin-left: 10px;
+      font-size: 16px;
+      color: #2c3e50;
+    }
+    .speed-controls button {
+      margin-right: 10px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-pane">
+            <h1>Eval Voice</h1>
+            <div class="input-group">
+                <input type="text" id="studentName" placeholder="Prénom, Nom, Classe">
+                <button id="recordStudentInfo"><span>&#127897;</span></button>
+            </div>
+            <div class="centre">
+                <p>Téléchargez un fichier PDF puis cliquez sur "Démarrer l'évaluation" pour commencer.</p>
+                <input type="file" id="fileInput" accept="application/pdf">
+                <button id="startEval" disabled>Démarrer l'évaluation</button><br>
+                <button id="prevQuestion" disabled>Question précédente</button>
+                <button id="nextQuestion" disabled>Question suivante</button>
+            </div>
+            <div id="questionDisplay"></div>
+            <div class="input-group">
+                <input type="text" id="responseInput" placeholder="Réponse">
+            </div>
+            <div class="feedback">
+                <div id="recordingIndicator" style="display: none;">🎙️ Enregistrement...</div>
+                <div id="synthesisIndicator" style="display: none;">🔊 Lecture...</div>
+            </div>
+            <div class="centre">
+                <button id="speedDown">-</button>
+                <span id="speedDisplay">1.0x</span>
+                <button id="speedUp">+</button>   
+                <br>
+                <button id="exportResponses" disabled>Exporter les réponses</button>
+            </div>
+        </div>
+        <div class="right-pane">
+            <iframe id="pdfViewer"></iframe>
+        </div>
+    </div>
+
+  <script>
+    let questions = [];
+    let currentQuestion = 0;
+    let responses = [];
+    let recognition;
+    let synthesis = window.speechSynthesis;
+    let recordingStudentInfo = false;
+    let recordingResponse = false;
+    let speechRate = 1.0;
+
+    function initializeRecognition() {
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'fr-FR';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            if (recordingStudentInfo) {
+              document.getElementById('studentName').value = event.results[i][0].transcript;
+              recordingStudentInfo = false;
+              document.getElementById('recordingIndicator').style.display = 'none';
+            } else if (recordingResponse) {
+              document.getElementById('responseInput').value = event.results[i][0].transcript;
+              responses[currentQuestion] = event.results[i][0].transcript;
+              recordingResponse = false;
+              document.getElementById('recordingIndicator').style.display = 'none';
+            }
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Recognition error:', event.error);
+        alert('Une erreur est survenue avec la reconnaissance vocale : ' + event.error);
+        document.getElementById('recordingIndicator').style.display = 'none';
+      };
+    }
+
+    if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      initializeRecognition();
+    } else {
+      alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
+    }
+
+    document.getElementById('recordStudentInfo').addEventListener('click', () => {
+      recordingStudentInfo = true;
+      recognition.start();
+      document.getElementById('recordingIndicator').style.display = 'block';
+    });
+
+    document.getElementById('responseInput').addEventListener('input', (event) => {
+      responses[currentQuestion] = event.target.value;
+    });
+
+    document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+    document.getElementById('startEval').addEventListener('click', startEvaluation);
+    document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
+    document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
+    document.getElementById('exportResponses').addEventListener('click', exportResponses);
+    document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
+    document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
+
+    function requestMicrophoneAccess() {
+      return navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          stream.getTracks().forEach(track => track.stop());
+          document.getElementById('recordStudentInfo').disabled = false;
+        })
+        .catch(error => {
+          console.error('Microphone access denied:', error);
+          throw error;
+        });
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const pdfData = e.target.result;
+          const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+          loadingTask.promise.then(function(pdf) {
+            let textContent = '';
+            let loadPage = (pageNumber) => {
+              pdf.getPage(pageNumber).then(function(page) {
+                page.getTextContent().then(function(textContentObj) {
+                  textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
+                  if (pageNumber < pdf.numPages) {
+                    loadPage(pageNumber + 1);
+                  } else {
+                    console.log("Extracted Text Content: ", textContent);
+                    // Utiliser une méthode pour extraire les questions
+                    extractQuestions(textContent);
+                  }
+                });
+              });
+            };
+            loadPage(1);
+            // Afficher le PDF dans l'iframe
+            document.getElementById('pdfViewer').src = URL.createObjectURL(new Blob([pdfData], { type: 'application/pdf' }));
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    function extractQuestions(textContent) {
+      // Nettoyer le texte extrait
+      textContent = textContent.replace(/\s\s+/g, ' ');  // Remplacer les espaces multiples par un seul espace
+      console.log("Cleaned Text Content: ", textContent);
+      
+      let questionsArray = [];
+      let questionPattern = /(?:Question \d+ :|\d+\)|Question :|[a-zA-Z]\))/gi;
+      let match;
+      let lastIndex = 0;
+
+      while ((match = questionPattern.exec(textContent)) !== null) {
+        if (questionsArray.length > 0) {
+          questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex, match.index).trim();
+        }
+        questionsArray.push({ index: match.index, text: match[0] });
+        lastIndex = questionPattern.lastIndex;
+      }
+
+      if (questionsArray.length > 0) {
+        questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex).trim();
+      }
+
+      questions = questionsArray.map(q => q.text);
+      console.log("Extracted Questions : ", questions);
+
+      if (questions.length > 0) {
+        document.getElementById('startEval').disabled = false;
+      } else {
+        console.log("No questions found.");
+        alert("Aucune question trouvée dans le document PDF.");
+      }
+    }
+
+    function startEvaluation() {
+      if (synthesis && recognition && questions.length > 0) {
+        console.log("Starting evaluation...");
+        askQuestion(currentQuestion);
+        document.getElementById('startEval').disabled = true;
+        document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
+        document.getElementById('nextQuestion').disabled = (questions.length === 1);
+        document.getElementById('exportResponses').disabled = false;
+      } else {
+        alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale ou aucune question n'a été trouvée.");
+      }
+    }
+
+    function askQuestion(index) {
+      if (!synthesis.speaking && questions[index]) {
+        console.log(`Asking question ${index + 1}: ${questions[index]}`);
+        let utterance = new SpeechSynthesisUtterance(questions[index]);
+        utterance.lang = 'fr-FR';
+        utterance.rate = speechRate;
+        utterance.onstart = () => {
+            document.getElementById('questionDisplay').textContent = questions[index];
+          document.getElementById('synthesisIndicator').style.display = 'block';
+        };
+        utterance.onend = () => {
+          document.getElementById('synthesisIndicator').style.display = 'none';
+          document.getElementById('recordingIndicator').style.display = 'block';
+          startRecordingResponse();
+        };
+        synthesis.speak(utterance);
+      } else {
+        console.error("Synthesis speaking or no question available");
+      }
+    }
+
+    function startRecordingResponse() {
+        recordingResponse = true;
+        recognition.start();
+        document.getElementById('recordingIndicator').style.display = 'block';
+    }
+
+    function navigateQuestion(direction) {
+      currentQuestion += direction;
+      if (currentQuestion < 0) currentQuestion = 0;
+      if (currentQuestion >= questions.length) currentQuestion = questions.length - 1;
+      document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
+      document.getElementById('nextQuestion').disabled = (currentQuestion === questions.length - 1);
+      document.getElementById('responseInput').value = responses[currentQuestion] || '';
+      askQuestion(currentQuestion);
+    }
+
+    function exportResponses() {
+      const studentInfo = document.getElementById('studentName').value;
+      if (!studentInfo) {
+        alert('Veuillez renseigner votre identité (Prénom, Nom, Classe) avant d\'exporter les réponses.');
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text(`Nom, Prénom, Classe : ${studentInfo}`, 10, 10);
+      let output = questions.map((q, i) => `${q}\nRéponse : ${responses[i] || "Pas de réponse."}\n\n`).join('');
+      doc.text(output, 10, 30);
+      doc.save('reponses_evaluation.pdf');
+    }
+
+    function adjustSpeechRate(delta) {
+      speechRate = Math.max(0.5, Math.min(2.0, speechRate + delta));
+      document.getElementById('speedDisplay').textContent = speechRate.toFixed(1) + 'x';
+    }
+  </script>
+</body>
+</html>
