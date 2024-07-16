@@ -28,8 +28,10 @@
 1. Cloner le Dépôt : `git clone https://github.com/Einstein1987/EvalVoice.git`
 2. Naviguer vers le Répertoire du Projet : `cd EvalVoice`
 3. Ouvrir le Fichier `index.html` : Ouvrez simplement le fichier `index.html` dans votre navigateur web pour commencer à utiliser l'application.
-### Licence
-Ce projet est sous **licence MIT**. [Voir le fichier LICENSE pour plus de détails](https://opensource.org/license/MIT).
+## Licence
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+## Auteur
+- **Jérémy VIOLETTE** - Professeur de Physique-Chimie, Collège La NACELLE (REP) de Corbeil-Essonnes (91100)
 ### Contact
 Pour toute question ou support, veuillez me contacter.
 
@@ -65,7 +67,9 @@ Pour toute question ou support, veuillez me contacter.
 1. Clone the Repository : `git clone https://github.com/Einstein1987/EvalVoice.git`
 2. Navigate to the Project Directory : `cd EvalVoice`
 3. Open the `index.html` File : Simply open the `index.html` file in your web browser to start using the application.
-### License
-This project is licensed under the **MIT License**. [See the LICENSE file for more details](https://opensource.org/license/MIT).
+## Licence
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+## Author
+- **Jérémy VIOLETTE** - Professor of Physics-Chemistry, La NACELLE College (REP) of Corbeil-Essonnes (91100)
 ### Contact
 For any inquiries or support, please contact me.
