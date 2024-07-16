@@ -32,7 +32,6 @@
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 ## Auteur
 - **Jérémy VIOLETTE** - Professeur de Physique-Chimie, Collège La NACELLE (REP) de Corbeil-Essonnes (91100)
-### Contact
 Pour toute question ou support, veuillez me contacter.
 
 --------------------------------------------------------------------------------------------
@@ -71,5 +70,4 @@ Pour toute question ou support, veuillez me contacter.
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 ## Author
 - **Jérémy VIOLETTE** - Professor of Physics-Chemistry, La NACELLE College (REP) of Corbeil-Essonnes (91100)
-### Contact
 For any inquiries or support, please contact me.
