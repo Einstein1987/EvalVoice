@@ -35,6 +35,8 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
   
 Pour toute question ou support, veuillez me contacter.
 
+*EvalVoice est conçu pour aider les élèves en difficulté de lecture et d'écriture en leur offrant une évaluation adaptée utilisant la synthèse vocale et la transcription de réponses dictées.*
+
 --------------------------------------------------------------------------------------------
 
 # EvalVoice
@@ -73,3 +75,5 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 - **Jérémy VIOLETTE** - Professor of Physics-Chemistry, La NACELLE College (REP) of Corbeil-Essonnes (91100).
 
 For any inquiries or support, please contact me.
+
+*EvalVoice is designed to assist students with reading and writing difficulties by providing an adapted evaluation using speech synthesis and dictated response transcription.*
