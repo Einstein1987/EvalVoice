@@ -1,3 +1,5 @@
+import { recognition, recordingStudentInfo, recordingResponse, responses, currentQuestion } from './globals.js';
+
 export default function initializeRecognition() {
   recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
   recognition.lang = 'fr-FR';
