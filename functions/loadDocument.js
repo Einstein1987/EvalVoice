@@ -1,4 +1,5 @@
 import { extractQuestions } from './extractQuestions.js';
+import { questions, synthesis, currentQuestion } from './globals.js';
 
 export default async function loadDocument() {
   const url = document.getElementById('urlInput').value;
