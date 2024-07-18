@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
       console.log("Cleaned Text Content: ", textContent);
       
       let questionsArray = [];
-      let questionPattern = /(?:Question \d+ :|\d+\)|Question :)/gi;
+      let questionPattern = /(?:Question \d+ :|\d+\)|Question :|\d+\.)/gi;
       let match;
       let lastIndex = 0;
 
