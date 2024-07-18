@@ -8,6 +8,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="./funcions/globals.js"></script>
+  <script src="./funcions/initializeRecognition.js"></script>
+  <script src="./funcions/extractQuestions.js"></script>
+  <script src="./funcions/loadDocument.js"></script>
+  <script src="./funcions/requestMicrophoneAcces.js"></script>
 </head>
 <body>
     <div class="container">
@@ -50,7 +55,7 @@
     </div>
 
   <script>
-    let questions = [];
+    /*let questions = [];
     let currentQuestion = 0;
     let responses = [];
     let recognition;
@@ -90,7 +95,7 @@
         alert('Une erreur est survenue avec la reconnaissance vocale : ' + event.error);
         document.getElementById('recordingIndicator').style.display = 'none';
       };
-    }
+    }*/
 
 document.addEventListener('DOMContentLoaded', (event) => {
     if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -115,7 +120,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
     document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
 });
-
+/*
     function requestMicrophoneAccess() {
       return navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
@@ -211,7 +216,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
       if (synthesis && recognition && questions.length > 0) {
         console.log("Starting evaluation...");
         askQuestion(currentQuestion);
-        //document.getElementById('startEval').disabled = true;
         document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
         document.getElementById('nextQuestion').disabled = (questions.length === 1);
         document.getElementById('exportResponses').disabled = false;
@@ -274,7 +278,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     function adjustSpeechRate(delta) {
       speechRate = Math.max(0.5, Math.min(2.0, speechRate + delta));
       document.getElementById('speedDisplay').textContent = speechRate.toFixed(1) + 'x';
-    }
+    }*/
   </script>
 </body>
 </html>
