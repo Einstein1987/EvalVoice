@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EvalVoice - Application d'aide à l'évaluation</title>
   <link rel="stylesheet" href="styles/styles.css">
-  <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
     document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
 });
+
     function requestMicrophoneAccess() {
       return navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
@@ -181,7 +182,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
       console.log("Cleaned Text Content: ", textContent);
       
       let questionsArray = [];
-      let questionPattern = /(?:Question \d+ :|\d+\)|Question :|\d+\.)/gi;
+      let questionPattern = /(?:Question \d+ :|\d+\)|Question :)/gi;
       let match;
       let lastIndex = 0;
 
@@ -210,6 +211,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
       if (synthesis && recognition && questions.length > 0) {
         console.log("Starting evaluation...");
         askQuestion(currentQuestion);
+        //document.getElementById('startEval').disabled = true;
         document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
         document.getElementById('nextQuestion').disabled = (questions.length === 1);
         document.getElementById('exportResponses').disabled = false;
