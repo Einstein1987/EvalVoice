@@ -1,4 +1,4 @@
-...import { extractQuestions } from './extractQuestions.js';
+import { extractQuestions } from './extractQuestions.js';
 
 export default async function loadDocument() {
   const url = document.getElementById('urlInput').value;
