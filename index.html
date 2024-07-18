@@ -8,6 +8,54 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script type="module">
+    import initializeRecognition from './functions/initializeRecognition.js';
+    import loadDocument from './functions/loadDocument.js';
+    import { extractQuestions } from './functions/extractQuestions.js';
+    // Importez d'autres fonctions nécessaires ici
+    // Initialisation des variables globales
+    let questions = [];
+    let currentQuestion = 0;
+    let responses = [];
+    let recognition;
+    let synthesis = window.speechSynthesis;
+    let recordingStudentInfo = false;
+    let recordingResponse = false;
+    let speechRate = 1.0;
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+      if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+        initializeRecognition();
+      } else {
+        alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
+      }
+
+      document.getElementById('recordStudentInfo').addEventListener('click', () => {
+        recordingStudentInfo = true;
+        recognition.start();
+        document.getElementById('recordingIndicator').style.display = 'block';
+      });
+
+      document.getElementById('responseInput').addEventListener('input', (event) => {
+        responses[currentQuestion] = event.target.value;
+      });
+
+      document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
+      document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
+      document.getElementById('exportResponses').addEventListener('click', exportResponses);
+      document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
+      document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
+    });
+
+    async function loadDocumentWrapper() {
+      await loadDocument();
+    }
+
+    document.getElementById('loadDocumentButton').addEventListener('click', loadDocumentWrapper);
+    
+    // Autres fonctions ici...
+  </script>
+</head>
 </head>
 <body>
     <div class="container">
@@ -48,9 +96,9 @@
             <iframe id="pdfViewer"></iframe>
         </div>
     </div>
-
+<!--
   <script>
-    let questions = [];
+   let questions = [];
     let currentQuestion = 0;
     let responses = [];
     let recognition;
@@ -276,5 +324,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
       document.getElementById('speedDisplay').textContent = speechRate.toFixed(1) + 'x';
     }
   </script>
+  -->
 </body>
 </html>
