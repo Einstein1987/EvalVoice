@@ -9,9 +9,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script type="module">
+    import { questions, currentQuestion, responses, recognition, synthesis, recordingStudentInfo, recordingResponse, speechRate } from './functions/globals.js';
     import initializeRecognition from './functions/initializeRecognition.js';
     import loadDocument from './functions/loadDocument.js';
-    import { questions, currentQuestion, responses, recognition, synthesis, recordingStudentInfo, recordingResponse, speechRate } from './functions/globals.js';
     import { extractQuestions } from './functions/extractQuestions.js';
     
     document.addEventListener('DOMContentLoaded', (event) => {
