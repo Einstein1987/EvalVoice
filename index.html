@@ -11,18 +11,9 @@
   <script type="module">
     import initializeRecognition from './functions/initializeRecognition.js';
     import loadDocument from './functions/loadDocument.js';
+    import { questions, currentQuestion, responses, recognition, synthesis, recordingStudentInfo, recordingResponse, speechRate } from './functions/globals.js';
     import { extractQuestions } from './functions/extractQuestions.js';
-    // Importez d'autres fonctions nécessaires ici
-    // Initialisation des variables globales
-    let questions = [];
-    let currentQuestion = 0;
-    let responses = [];
-    let recognition;
-    let synthesis = window.speechSynthesis;
-    let recordingStudentInfo = false;
-    let recordingResponse = false;
-    let speechRate = 1.0;
-
+    
     document.addEventListener('DOMContentLoaded', (event) => {
       if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
         initializeRecognition();
@@ -52,278 +43,47 @@
     }
 
     document.getElementById('loadDocumentButton').addEventListener('click', loadDocumentWrapper);
-    
+
     // Autres fonctions ici...
   </script>
 </head>
-</head>
 <body>
-    <div class="container">
-        <div class="top-right">
-            <button id="loadPdfButton" onclick="window.location.href='pdf.html'">PDF</button>
-        </div>
-        <div class="left-pane">
-            <h1>Eval Voice</h1>
-            <div class="input-group">
-                <input type="text" id="studentName" placeholder="Prénom, Nom, Classe">
-                <button id="recordStudentInfo"><span>&#127897;</span></button>
-            </div>
-            <div class="centre">
-                <p>Entrez l'URL d'un document Google Docs <br> puis cliquez sur "Charger le document" pour commencer.</p>
-                <input type="text" id="urlInput" placeholder="URL Google Docs">
-                <button id="loadDocumentButton" onclick="loadDocument()">Charger le document</button><br>
-                <button id="prevQuestion" disabled>Question précédente</button>
-                <button id="nextQuestion" disabled>Question suivante</button>
-            </div>
-            <div id="questionDisplay"></div>
-            <div class="input-group">
-                <input type="text" id="responseInput" placeholder="Réponse">
-            </div>
-            <div class="feedback">
-                <div id="recordingIndicator" style="display: none;">🎙️ Enregistrement...</div>
-                <div id="synthesisIndicator" style="display: none;">🔊 Lecture...</div>
-            </div>
-            <div class="centre">
-                <button id="speedDown">-</button>
-                <span id="speedDisplay">1.0x</span>
-                <button id="speedUp">+</button>   
-                <br>
-                <button id="exportResponses" disabled>Exporter les réponses</button>
-            </div>
-        </div>
-        <div class="right-pane">
-            
-            <iframe id="pdfViewer"></iframe>
-        </div>
+  <div class="container">
+    <div class="top-right">
+      <button id="loadPdfButton" onclick="window.location.href='pdf.html'">PDF</button>
     </div>
-<!--
-  <script>
-   let questions = [];
-    let currentQuestion = 0;
-    let responses = [];
-    let recognition;
-    let synthesis = window.speechSynthesis;
-    let recordingStudentInfo = false;
-    let recordingResponse = false;
-    let speechRate = 1.0;
-
-    function initializeRecognition() {
-      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.lang = 'fr-FR';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      recognition.onresult = (event) => {
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            if (recordingStudentInfo) {
-              document.getElementById('studentName').value = event.results[i][0].transcript;
-              recordingStudentInfo = false;
-              document.getElementById('recordingIndicator').style.display = 'none';
-            } else if (recordingResponse) {
-              document.getElementById('responseInput').value = event.results[i][0].transcript;
-              responses[currentQuestion] = event.results[i][0].transcript;
-              recordingResponse = false;
-              document.getElementById('recordingIndicator').style.display = 'none';
-            }
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-      };
-
-      recognition.onerror = (event) => {
-        console.error('Recognition error:', event.error);
-        alert('Une erreur est survenue avec la reconnaissance vocale : ' + event.error);
-        document.getElementById('recordingIndicator').style.display = 'none';
-      };
-    }
-
-document.addEventListener('DOMContentLoaded', (event) => {
-    if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-        initializeRecognition();
-    } else {
-        alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
-    }
-
-    document.getElementById('recordStudentInfo').addEventListener('click', () => {
-        recordingStudentInfo = true;
-        recognition.start();
-        document.getElementById('recordingIndicator').style.display = 'block';
-    });
-
-    document.getElementById('responseInput').addEventListener('input', (event) => {
-        responses[currentQuestion] = event.target.value;
-    });
-
-    document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
-    document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
-    document.getElementById('exportResponses').addEventListener('click', exportResponses);
-    document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
-    document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
-});
-
-    function requestMicrophoneAccess() {
-      return navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          stream.getTracks().forEach(track => track.stop());
-          document.getElementById('recordStudentInfo').disabled = false;
-        })
-        .catch(error => {
-          console.error('Microphone access denied:', error);
-          throw error;
-        });
-    }
-
-    async function loadDocument() {
-    const url = document.getElementById('urlInput').value;
-    const docId = url.match(/[-\w]{25,}/);
-    const pdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
-
-    try {
-        const response = await fetch(`https://cors-anywhere.herokuapp.com/${pdfUrl}`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const blob = await response.blob();
-        const urlBlob = URL.createObjectURL(blob);
-
-        const documentViewer = document.getElementById('pdfViewer');
-        documentViewer.src = urlBlob;
-
-        const pdfData = new Uint8Array(await blob.arrayBuffer());
-        const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-
-        let textContent = '';
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-            const page = await pdfDoc.getPage(i);
-            const textContentObj = await page.getTextContent();
-            textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
-        }
-
-        textContent = textContent.replace(/\s\s+/g, ' '); // Remove extra spaces
-        console.log("Extracted Text Content: ", textContent);
-
-        // Extract questions
-        extractQuestions(textContent);
-
-        // Start evaluation if questions are found
-        if (questions.length > 0) {
-            startEvaluation();
-        }
-    } catch (error) {
-        console.error('Erreur lors du chargement du document:', error);
-        alert('Une erreur est survenue lors du chargement du document.');
-    }
-}
-
-    function extractQuestions(textContent) {
-      // Nettoyer le texte extrait
-      textContent = textContent.replace(/\s\s+/g, ' ');  // Remplacer les espaces multiples par un seul espace
-      console.log("Cleaned Text Content: ", textContent);
-      
-      let questionsArray = [];
-      let questionPattern = /(?:Question \d+ :|\d+\)|Question :)/gi;
-      let match;
-      let lastIndex = 0;
-
-      while ((match = questionPattern.exec(textContent)) !== null) {
-        if (questionsArray.length > 0) {
-          questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex, match.index).trim();
-        }
-        questionsArray.push({ index: match.index, text: match[0] });
-        lastIndex = questionPattern.lastIndex;
-      }
-
-      if (questionsArray.length > 0) {
-        questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex).trim();
-      }
-
-      questions = questionsArray.map(q => q.text);
-      console.log("Extracted Questions : ", questions);
-
-      if (questions.length < 0) {
-        console.log("No questions found.");
-        alert("Aucune question trouvée dans le document PDF.");
-      }
-    }
-
-    function startEvaluation() {
-      if (synthesis && recognition && questions.length > 0) {
-        console.log("Starting evaluation...");
-        askQuestion(currentQuestion);
-        //document.getElementById('startEval').disabled = true;
-        document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
-        document.getElementById('nextQuestion').disabled = (questions.length === 1);
-        document.getElementById('exportResponses').disabled = false;
-      } else {
-        alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale ou aucune question n'a été trouvée.");
-      }
-    }
-
-    function askQuestion(index) {
-      if (!synthesis.speaking && questions[index]) {
-        console.log(`Asking question ${index + 1}: ${questions[index]}`);
-        let utterance = new SpeechSynthesisUtterance(questions[index]);
-        utterance.lang = 'fr-FR';
-        utterance.rate = speechRate;
-        utterance.onstart = () => {
-            document.getElementById('questionDisplay').textContent = questions[index];
-          document.getElementById('synthesisIndicator').style.display = 'block';
-        };
-        utterance.onend = () => {
-          document.getElementById('synthesisIndicator').style.display = 'none';
-          document.getElementById('recordingIndicator').style.display = 'block';
-          startRecordingResponse();
-        };
-        synthesis.speak(utterance);
-      } else {
-        console.error("Synthesis speaking or no question available");
-      }
-    }
-
-    function startRecordingResponse() {
-        recordingResponse = true;
-        recognition.start();
-        document.getElementById('recordingIndicator').style.display = 'block';
-    }
-
-    function navigateQuestion(direction) {
-    currentQuestion += direction;
-    if (currentQuestion < 0) currentQuestion = 0;
-    if (currentQuestion >= questions.length) currentQuestion = questions.length - 1;
-    document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
-    document.getElementById('nextQuestion').disabled = (currentQuestion === questions.length - 1);
-    document.getElementById('responseInput').value = responses[currentQuestion] || '';
-    askQuestion(currentQuestion);
-    }
-
-    function exportResponses() {
-      const studentInfo = document.getElementById('studentName').value;
-      if (!studentInfo) {
-        alert('Veuillez renseigner votre identité (Prénom, Nom, Classe) avant d\'exporter les réponses.');
-        return;
-      }
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.text(`Nom, Prénom, Classe : ${studentInfo}`, 10, 10);
-      let output = questions.map((q, i) => `${q}\nRéponse : ${responses[i] || "Pas de réponse."}\n\n`).join('');
-      doc.text(output, 10, 30);
-      doc.save('reponses_evaluation.pdf');
-    }
-
-    function adjustSpeechRate(delta) {
-      speechRate = Math.max(0.5, Math.min(2.0, speechRate + delta));
-      document.getElementById('speedDisplay').textContent = speechRate.toFixed(1) + 'x';
-    }
-  </script>
-  -->
+    <div class="left-pane">
+      <h1>Eval Voice</h1>
+      <div class="input-group">
+        <input type="text" id="studentName" placeholder="Prénom, Nom, Classe">
+        <button id="recordStudentInfo"><span>&#127897;</span></button>
+      </div>
+      <div class="centre">
+        <p>Entrez l'URL d'un document Google Docs <br> puis cliquez sur "Charger le document" pour commencer.</p>
+        <input type="text" id="urlInput" placeholder="URL Google Docs">
+        <button id="loadDocumentButton">Charger le document</button><br>
+        <button id="prevQuestion" disabled>Question précédente</button>
+        <button id="nextQuestion" disabled>Question suivante</button>
+      </div>
+      <div id="questionDisplay"></div>
+      <div class="input-group">
+        <input type="text" id="responseInput" placeholder="Réponse">
+      </div>
+      <div class="feedback">
+        <div id="recordingIndicator" style="display: none;">🎙️ Enregistrement...</div>
+        <div id="synthesisIndicator" style="display: none;">🔊 Lecture...</div>
+      </div>
+      <div class="centre">
+        <button id="speedDown">-</button>
+        <span id="speedDisplay">1.0x</span>
+        <button id="speedUp">+</button>   
+        <br>
+        <button id="exportResponses" disabled>Exporter les réponses</button>
+      </div>
+    </div>
+    <div class="right-pane">
+      <iframe id="pdfViewer"></iframe>
+    </div>
+  </div>
 </body>
 </html>
