@@ -1,3 +1,5 @@
+import { questions } from './globals.js';
+
 export function extractQuestions(textContent) {
   textContent = textContent.replace(/\s\s+/g, ' ');
   console.log("Cleaned Text Content: ", textContent);
