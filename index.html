@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
    try {
         // Appel à la fonction serverless hébergée sur Netlify
-        const response = await fetch('./functions/fetch-doc.js', {
+        const response = await fetch('/.netlify/functions/fetch-doc', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
