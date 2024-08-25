@@ -1,11 +1,10 @@
 [build]
   publish = "."
-  command = "npm install"
+
+[functions]
+  directory = "functions"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[functions]
-  directory = "functions"
