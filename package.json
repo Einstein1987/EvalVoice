@@ -1,0 +1,15 @@
+{
+  "name": "evalvoice",
+  "version": "1.0.0",
+  "description": "Une application web pour pouvoir effectuer des évaluations à l'oral",
+  "main": "index.js",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
+  "author": "Jérémy VIOLETTE",
+  "license": "MIT"
+}
