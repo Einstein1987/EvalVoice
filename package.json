@@ -6,9 +6,12 @@
   "dependencies": {
     "node-fetch": "^2.6.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
   "scripts": {
-    "build": "echo 'No build step required'"
+    "build": "echo 'No build step required'",
+    "test": "jest"
   },
   "author": "Jérémy VIOLETTE",
   "license": "MIT"
