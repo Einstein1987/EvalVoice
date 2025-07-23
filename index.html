@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
       questions = questionsArray.map(q => q.text);
       console.log("Extracted Questions : ", questions);
 
-      if (questions.length < 0) {
+      if (questions.length === 0) {
         console.log("No questions found.");
         alert("Aucune question trouvée dans le document PDF.");
       }
