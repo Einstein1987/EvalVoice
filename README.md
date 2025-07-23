@@ -27,7 +27,8 @@
 ### Instructions d'Installation
 1. Cloner le Dépôt : `git clone https://github.com/Einstein1987/EvalVoice.git`
 2. Naviguer vers le Répertoire du Projet : `cd EvalVoice`
-3. Ouvrir le Fichier `index.html` : Ouvrez simplement le fichier `index.html` dans votre navigateur web pour commencer à utiliser l'application.
+3. Installer **Netlify CLI** (si nécessaire) : `npm install -g netlify-cli`
+4. Démarrer localement avec `netlify dev` ou déployer sur Netlify pour que la fonction `functions/fetch-doc.js` soit disponible. Le fichier `index.html` utilise cette fonction pour récupérer les documents. Ouvrez ensuite l'application via l'URL fournie par Netlify.
 ## Licence
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 ## Auteur
@@ -68,7 +69,8 @@ Pour toute question ou support, veuillez me contacter.
 ### Setup Instructions
 1. Clone the Repository : `git clone https://github.com/Einstein1987/EvalVoice.git`
 2. Navigate to the Project Directory : `cd EvalVoice`
-3. Open the `index.html` File : Simply open the `index.html` file in your web browser to start using the application.
+3. Install **Netlify CLI** if you don't have it : `npm install -g netlify-cli`
+4. Run `netlify dev` to start the project locally, or deploy to Netlify so the `functions/fetch-doc.js` function is available. The `index.html` file relies on this function to fetch documents. Access the app through the URL provided by Netlify.
 ## Licence
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 ## Author
