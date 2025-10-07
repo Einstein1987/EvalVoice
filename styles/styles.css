@@ -1,120 +1,480 @@
+/* Variables CSS pour faciliter la maintenance */
+:root {
+  --primary-color: #3498db;
+  --primary-hover: #2980b9;
+  --secondary-color: #2ecc71;
+  --danger-color: #e74c3c;
+  --text-dark: #2c3e50;
+  --bg-light: #ecf0f1;
+  --border-color: #bdc3c7;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --transition: all 0.3s ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f0f0f0;
-    }
-    .container {
-      position:relative;
-      display: flex;
-      max-width: 1200px;
-      margin: 0 auto;
-      background-color: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      
-    }
-    .top-right {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-    }
-   .top-right button {
-        background-color: #3498db;
-        color: white;
-        border: none;
-        padding: 10px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 16px;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-    }
-    .top-right button:hover {
-        background-color: #2980b9;
-    }
-    .left-pane {
-      width: 50%;
-    }
-    .right-pane {
-      width: 50%;
-      padding-left: 20px;
-    }
-    .centre{
-     text-align: center;
-    }
-    h1 {
-      color: #2c3e50;
-      text-align: center;
-    }
-    button {
-      background-color: #3498db;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      margin: 5px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    button:hover {
-      background-color: #2980b9;
-    }
-    button:disabled {
-      background-color: #bdc3c7;
-      cursor: not-allowed;
-    }
-    input[type="file"], input[type="text"] {
-      width: calc(100% - 20px);
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 5px;
-      border: 1px solid #bdc3c7;
-      font-size: 16px;
-    }
-    #questionDisplay {
-      margin: 20px 0;
-      padding: 10px;
-      border: 1px solid #bdc3c7;
-      border-radius: 5px;
-      min-height: 50px;
-      background-color: #ecf0f1;
-        width: calc(100% - 20px);
-    }
-    .input-group {
-      display: flex;
-      align-items: center;
-    }
-    .input-group button {
-      width: 40px;
-      height: 40px;
-      margin-left: 10px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 1px solid #bdc3c7;
-      border-radius: 5px;
-    }
-    .feedback {
-      display: flex;
-      align-items: center;
-      margin: 10px 0;
-    }
-    .feedback span {
-      margin-left: 10px;
-      font-size: 16px;
-      color: #2c3e50;
-    }
-    .speed-controls button {
-      margin-right: 10px;
-    }
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.container {
+  position: relative;
+  display: flex;
+  max-width: 1400px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  gap: 30px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+    padding: 15px;
+  }
+  
+  .left-pane, .right-pane {
+    width: 100% !important;
+    padding-left: 0 !important;
+  }
+}
+
+.top-right {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 100;
+}
+
+.top-right button {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  color: white;
+  box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+/* Contrôles de vitesse */
+.speed-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin: 15px 0;
+}
+
+#speedDisplay {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text-dark);
+  min-width: 60px;
+  text-align: center;
+  padding: 8px 16px;
+  background: var(--bg-light);
+  border-radius: 8px;
+}
+
+#speedDown,
+#speedUp {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  font-size: 24px;
+  font-weight: bold;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Barre de progression */
+.progress-container {
+  width: 100%;
+  margin: 20px 0;
+  padding: 15px;
+  background: var(--bg-light);
+  border-radius: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background-color: #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  transition: width 0.5s ease;
+  border-radius: 6px;
+}
+
+.progress-text {
+  text-align: center;
+  margin-top: 8px;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 14px;
+}
+
+/* Navigation entre questions améliorée */
+.navigation-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 15px 0;
+}
+
+.navigation-buttons button {
+  flex: 1;
+  max-width: 200px;
+}
+
+/* État de chargement */
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Messages d'erreur et de succès */
+.message {
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin: 15px 0;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.message.info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* Amélioration du placeholder */
+input::placeholder {
+  color: #95a5a6;
+  font-style: italic;
+}
+
+/* Accessibilité - Focus visible */
+button:focus,
+input:focus {
+  outline: 3px solid rgba(52, 152, 219, 0.5);
+  outline-offset: 2px;
+}
+
+/* Amélioration du bouton PDF/Gdoc en haut à droite */
+.top-right button {
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.top-right button:hover {
+  transform: scale(1.1) rotate(5deg);
+}
+
+/* Mode sombre (optionnel) */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  }
+  
+  .container {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+  }
+  
+  h1 {
+    color: #ecf0f1;
+  }
+  
+  input[type="text"],
+  input[type="file"] {
+    background-color: #34495e;
+    color: #ecf0f1;
+    border-color: #4a5f7f;
+  }
+  
+  #questionDisplay {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: #ecf0f1;
+    border-color: #4a5f7f;
+  }
+  
+  iframe {
+    border-color: #4a5f7f;
+  }
+}(--primary-hover));
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+.top-right button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.left-pane {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.right-pane {
+  width: 50%;
+  padding-left: 0;
+}
+
+.centre {
+  text-align: center;
+}
+
+h1 {
+  color: var(--text-dark);
+  text-align: center;
+  font-size: 2.5em;
+  margin: 0 0 20px 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Styles des boutons améliorés */
+button {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  margin: 5px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  background: linear-gradient(135deg, var(--border-color), #95a5a6);
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+button:disabled:hover {
+  transform: none;
+  box-shadow: var(--shadow);
+}
+
+/* Bouton d'export avec couleur différente */
+#exportResponses {
+  background: linear-gradient(135deg, var(--secondary-color), #27ae60);
+}
+
+#exportResponses:hover {
+  background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+/* Inputs améliorés */
+input[type="file"],
+input[type="text"] {
+  width: 100%;
+  padding: 14px 18px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  font-size: 16px;
+  transition: var(--transition);
+  background-color: white;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+input[type="file"] {
+  padding: 10px;
+  cursor: pointer;
+}
+
+/* Affichage de la question avec animation */
+#questionDisplay {
+  margin: 20px 0;
+  padding: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  min-height: 100px;
+  background: linear-gradient(135deg, #f8f9fa, var(--bg-light));
+  font-size: 18px;
+  line-height: 1.6;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Groupe d'inputs avec micro */
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-group input {
+  flex: 1;
+  margin: 0;
+}
+
+.input-group button {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  margin: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  padding: 0;
+}
+
+.input-group button:hover {
+  background: linear-gradient(135deg, var(--secondary-color), #27ae60);
+}
+
+/* Iframe PDF */
+iframe {
+  width: 100%;
+  height: 700px;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+/* Feedback visuel amélioré */
+.feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 15px 0;
+  min-height: 40px;
+  gap: 10px;
+}
+
+.feedback > div {
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+#recordingIndicator {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+}
+
+#synthesisIndicator {
+  background: linear-gradient(135deg, var(--primary-color), var
