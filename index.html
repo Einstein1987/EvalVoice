@@ -1,14 +1,19 @@
-<!DOCTYPE html>
-<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="EvalVoice - Application d'aide à l'évaluation avec synthèse vocale">
   <title>EvalVoice - Application d'aide à l'évaluation</title>
   <link rel="stylesheet" href="styles/styles.css">
+  
+  <!-- Bibliothèques externes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  
+  <!-- Modules EvalVoice (DANS CET ORDRE) -->
+  <script src="scripts/state-management.js"></script>
+  <script src="scripts/browser-compatibility.js"></script>
+  <script src="scripts/accessibility.js"></script>
   <script src="scripts/evalvoice.js"></script>
 </head>
 <body>
