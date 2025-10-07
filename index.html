@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EvalVoice - Application d'aide à l'évaluation avec synthèse vocale">
   <title>EvalVoice - Application d'aide à l'évaluation</title>
   <link rel="stylesheet" href="styles/styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
@@ -13,164 +14,274 @@
 <body>
     <div class="container">
         <div class="top-right">
-            <button id="loadPdfButton" onclick="window.location.href='pdf.html'">PDF</button>
+            <button id="loadPdfButton" onclick="window.location.href='pdf.html'" title="Charger un PDF">PDF</button>
         </div>
+        
         <div class="left-pane">
-            <h1>EvalVoice</h1>
+            <h1>📚 EvalVoice</h1>
+            
+            <!-- Informations élève -->
             <div class="input-group">
-                <input type="text" id="studentName" placeholder="Prénom, Nom, Classe">
-                <button id="recordStudentInfo"><span>&#127897;</span></button>
+                <input type="text" id="studentName" placeholder="Prénom, Nom, Classe" aria-label="Informations élève">
+                <button id="recordStudentInfo" title="Enregistrer vos informations vocalement" disabled>
+                    <span>🎤</span>
+                </button>
             </div>
+            
+            <!-- Instructions et chargement -->
             <div class="centre">
                 <p>Entrez l'URL d'un document Google Docs <br> puis cliquez sur "Charger le document" pour commencer.</p>
-                <input type="text" id="urlInput" placeholder="URL Google Docs">
-                <button id="loadDocumentButton" onclick="loadDocument()">Charger le document</button><br>
-                <button id="prevQuestion" disabled>Question précédente</button>
-                <button id="nextQuestion" disabled>Question suivante</button>
+                <input type="text" id="urlInput" placeholder="URL Google Docs" aria-label="URL du document">
+                <button id="loadDocumentButton" onclick="loadDocument()">
+                    📄 Charger le document
+                </button>
             </div>
-            <div id="questionDisplay"></div>
+            
+            <!-- Barre de progression -->
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progressText">Question 0 sur 0</div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="navigation-buttons">
+                <button id="prevQuestion" disabled>⬅️ Précédente</button>
+                <button id="nextQuestion" disabled>Suivante ➡️</button>
+            </div>
+            
+            <!-- Affichage de la question -->
+            <div id="questionDisplay" aria-live="polite"></div>
+            
+            <!-- Réponse -->
             <div class="input-group">
-                <input type="text" id="responseInput" placeholder="Réponse">
+                <input type="text" id="responseInput" placeholder="Réponse (vocale ou écrite)" aria-label="Votre réponse">
+                <button id="recordResponseButton" title="Enregistrer votre réponse vocalement" disabled style="display: none;">
+                    <span>🎤</span>
+                </button>
             </div>
+            
+            <!-- Feedback visuel -->
             <div class="feedback">
                 <div id="recordingIndicator" style="display: none;">🎙️ Enregistrement...</div>
                 <div id="synthesisIndicator" style="display: none;">🔊 Lecture...</div>
             </div>
-            <div class="centre">
-                <button id="speedDown">-</button>
+            
+            <!-- Contrôles de vitesse -->
+            <div class="centre speed-controls">
+                <button id="speedDown" title="Ralentir la lecture">−</button>
                 <span id="speedDisplay">1.0x</span>
-                <button id="speedUp">+</button>   
-                <br>
-                <button id="exportResponses" disabled>Exporter les réponses</button>
+                <button id="speedUp" title="Accélérer la lecture">+</button>   
+            </div>
+            
+            <!-- Export -->
+            <div class="centre">
+                <button id="exportResponses" disabled>💾 Exporter les réponses</button>
             </div>
         </div>
+        
+        <!-- Visualisation PDF -->
         <div class="right-pane">
-            
-            <iframe id="pdfViewer"></iframe>
+            <iframe id="pdfViewer" title="Aperçu du document PDF"></iframe>
         </div>
     </div>
 
   <script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+            initializeRecognition();
+        } else {
+            alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
+        }
 
-
-document.addEventListener('DOMContentLoaded', (event) => {
-    if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-        initializeRecognition();
-    } else {
-        alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
-    }
-
-    document.getElementById('recordStudentInfo').addEventListener('click', () => {
-        recordingStudentInfo = true;
-        recognition.start();
-        document.getElementById('recordingIndicator').style.display = 'block';
-    });
-
-    document.getElementById('responseInput').addEventListener('input', (event) => {
-        responses[currentQuestion] = event.target.value;
-    });
-
-    document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
-    document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
-    document.getElementById('exportResponses').addEventListener('click', exportResponses);
-    document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
-    document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
-});
-
-    function requestMicrophoneAccess() {
-      return navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          stream.getTracks().forEach(track => track.stop());
-          document.getElementById('recordStudentInfo').disabled = false;
-        })
-        .catch(error => {
-          console.error('Microphone access denied:', error);
-          throw error;
+        // Event listeners
+        document.getElementById('recordStudentInfo').addEventListener('click', () => {
+            recordingStudentInfo = true;
+            recognition.start();
+            document.getElementById('recordingIndicator').style.display = 'block';
         });
+
+        document.getElementById('responseInput').addEventListener('input', (event) => {
+            responses[currentQuestion] = event.target.value;
+            updateProgressBar();
+        });
+
+        document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
+        document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
+        document.getElementById('exportResponses').addEventListener('click', exportResponses);
+        document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
+        document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
+        
+        // Raccourcis clavier
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        if (!document.getElementById('prevQuestion').disabled) {
+                            navigateQuestion(-1);
+                        }
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        if (!document.getElementById('nextQuestion').disabled) {
+                            navigateQuestion(1);
+                        }
+                        break;
+                }
+            }
+        });
+    });
+
+    // Fonction pour mettre à jour la barre de progression
+    function updateProgressBar() {
+        const total = questions.length;
+        const current = currentQuestion + 1;
+        const answered = responses.filter(r => r && r.trim() !== '').length;
+        
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        if (total > 0) {
+            progressContainer.style.display = 'block';
+            const percentage = (current / total) * 100;
+            progressFill.style.width = percentage + '%';
+            progressText.textContent = `Question ${current} sur ${total} | ${answered} réponse${answered > 1 ? 's' : ''} enregistrée${answered > 1 ? 's' : ''}`;
+        }
     }
 
     async function loadDocument() {
-    const url = document.getElementById('urlInput').value;
-    const docId = url.match(/[-\w]{25,}/);
-    const pdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
-
-   try {
-        // Appel à la fonction serverless hébergée sur Netlify
-        const response = await fetch('/.netlify/functions/fetch-doc', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: pdfUrl })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const urlInput = document.getElementById('urlInput').value.trim();
+        
+        if (!urlInput) {
+            showNotification('⚠️ Veuillez entrer une URL', 'error');
+            return;
         }
-
-        const blob = await response.blob();
-        const urlBlob = URL.createObjectURL(blob);
-
-        const documentViewer = document.getElementById('pdfViewer');
-        documentViewer.src = urlBlob;
-
-        const pdfData = new Uint8Array(await blob.arrayBuffer());
-        const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-
-        let textContent = '';
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-            const page = await pdfDoc.getPage(i);
-            const textContentObj = await page.getTextContent();
-            textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
+        
+        // Extraire l'ID du document
+        const docId = urlInput.match(/[-\w]{25,}/);
+        
+        if (!docId) {
+            showNotification('⚠️ URL Google Docs invalide', 'error');
+            return;
         }
+        
+        const pdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
+        
+        // Afficher un indicateur de chargement
+        const loadButton = document.getElementById('loadDocumentButton');
+        const originalText = loadButton.innerHTML;
+        loadButton.innerHTML = '<span class="loading"></span> Chargement...';
+        loadButton.disabled = true;
 
-        textContent = textContent.replace(/\s\s+/g, ' '); // Remove extra spaces
-        console.log("Extracted Text Content: ", textContent);
+        try {
+            showNotification('⏳ Chargement du document...', 'info');
+            
+            // Appel à la fonction serverless
+            const response = await fetch('/.netlify/functions/fetch-doc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: pdfUrl })
+            });
 
-        // Extract questions
-        extractQuestions(textContent);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Erreur HTTP ${response.status}`);
+            }
 
-        // Start evaluation if questions are found
-        if (questions.length > 0) {
-            startEvaluation();
+            const blob = await response.blob();
+            const urlBlob = URL.createObjectURL(blob);
+
+            // Afficher le PDF
+            const documentViewer = document.getElementById('pdfViewer');
+            documentViewer.src = urlBlob;
+
+            // Extraire le texte
+            const pdfData = new Uint8Array(await blob.arrayBuffer());
+            const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+
+            let textContent = '';
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const textContentObj = await page.getTextContent();
+                textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
+            }
+
+            textContent = textContent.replace(/\s\s+/g, ' ');
+            console.log("Extracted Text Content: ", textContent);
+
+            // Extraire les questions
+            extractQuestions(textContent);
+
+            // Démarrer l'évaluation
+            if (questions.length > 0) {
+                startEvaluation();
+                showNotification(`✅ ${questions.length} question${questions.length > 1 ? 's' : ''} chargée${questions.length > 1 ? 's' : ''}`, 'success');
+            } else {
+                showNotification('⚠️ Aucune question trouvée dans le document', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Erreur lors du chargement du document:', error);
+            showNotification(`❌ ${error.message}`, 'error');
+        } finally {
+            loadButton.innerHTML = originalText;
+            loadButton.disabled = false;
         }
-    } catch (error) {
-        console.error('Erreur lors du chargement du document:', error);
-        alert('Une erreur est survenue lors du chargement du document.');
     }
-}
 
     function extractQuestions(textContent) {
-      // Nettoyer le texte extrait
-      textContent = textContent.replace(/\s\s+/g, ' ');  // Remplacer les espaces multiples par un seul espace
-      console.log("Cleaned Text Content: ", textContent);
-      
-      let questionsArray = [];
-      let questionPattern = /(?:Question \d+ :|\d+\)|Question :|\d+\.)/gi;
-      let match;
-      let lastIndex = 0;
+        textContent = textContent.replace(/\s\s+/g, ' ');
+        console.log("Cleaned Text Content: ", textContent);
+        
+        let questionsArray = [];
+        // Pattern amélioré pour détecter différents formats de questions
+        let questionPattern = /(?:Question\s+\d+\s*[:\-]|\d+\s*[\)\.]\s*|Q\d+\s*[:\-])/gi;
+        let match;
+        let lastIndex = 0;
 
-      while ((match = questionPattern.exec(textContent)) !== null) {
-        if (questionsArray.length > 0) {
-          questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex, match.index).trim();
+        while ((match = questionPattern.exec(textContent)) !== null) {
+            if (questionsArray.length > 0) {
+                questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex, match.index).trim();
+            }
+            questionsArray.push({ index: match.index, text: match[0] });
+            lastIndex = questionPattern.lastIndex;
         }
-        questionsArray.push({ index: match.index, text: match[0] });
-        lastIndex = questionPattern.lastIndex;
-      }
 
-      if (questionsArray.length > 0) {
-        questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex).trim();
-      }
+        if (questionsArray.length > 0) {
+            questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex).trim();
+        }
 
-      questions = questionsArray.map(q => q.text);
-      console.log("Extracted Questions : ", questions);
+        questions = questionsArray.map(q => q.text);
+        responses = new Array(questions.length).fill('');
+        
+        console.log("Extracted Questions : ", questions);
 
-      if (questions.length === 0) {
-        console.log("No questions found.");
-        alert("Aucune question trouvée dans le document PDF.");
-      }
+        if (questions.length === 0) {
+            console.log("No questions found.");
+        }
     }
 
+    // Fonction helper pour afficher des notifications (définie dans evalvoice.js)
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `message ${type}`;
+        notification.textContent = message;
+        
+        const container = document.querySelector('.left-pane');
+        container.insertBefore(notification, container.firstChild);
+        
+        setTimeout(() => {
+            notification.style.transition = 'opacity 0.5s, transform 0.5s';
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateY(-20px)';
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
+    }
   </script>
 </body>
 </html>
