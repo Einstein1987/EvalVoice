@@ -1,7 +1,3 @@
-// ============================================================
-// VARIABLES GLOBALES EVALVOICE
-// ============================================================
-
 let questions = [];
 let currentQuestion = 0;
 let responses = [];
@@ -13,52 +9,81 @@ let speechRate = 1.0;
 let microphonePermissionGranted = false;
 let recognitionInitialized = false;
 
-// ============================================================
-// FONCTIONS UTILITAIRES
-// ============================================================
-
-function showNotification(message, type = 'info') {
-  const notification = document.createElement('div');
-  notification.style.cssText = `
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-    padding: 15px 25px;
-    background-color: ${type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#3498db'};
-    color: white; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    z-index: 10000; font-size: 16px; max-width: 80%; text-align: center;
-  `;
-  notification.textContent = message;
-  document.body.appendChild(notification);
-  setTimeout(() => {
-    notification.style.transition = 'opacity 0.5s';
-    notification.style.opacity = '0';
-    setTimeout(() => notification.remove(), 500);
-  }, 3000);
-}
-
+// Demander l'accès au micro dès le chargement de la page
 async function requestMicrophonePermission() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(track => track.stop());
     microphonePermissionGranted = true;
     console.log('✅ Permission microphone accordée');
+    
+    // Afficher un message de succès visuel
     showNotification('✅ Microphone prêt', 'success');
+    
+    // Activer le bouton d'enregistrement des infos élève
     const recordBtn = document.getElementById('recordStudentInfo');
     if (recordBtn) {
       recordBtn.disabled = false;
       recordBtn.style.opacity = '1';
     }
+    
     return true;
   } catch (error) {
     console.error('❌ Permission microphone refusée:', error);
     microphonePermissionGranted = false;
-    showNotification('⚠️ Permission microphone refusée', 'error');
+    showNotification('⚠️ Permission microphone refusée. Cliquez sur "Activer le micro" pour réessayer.', 'error');
+    
+    // Afficher un bouton pour réessayer
+    showMicrophoneActivationButton();
     return false;
   }
 }
 
-// ============================================================
-// RECONNAISSANCE VOCALE
-// ============================================================
+// Afficher un bouton pour activer le micro si la permission est refusée
+function showMicrophoneActivationButton() {
+  const container = document.querySelector('.input-group');
+  if (container && !document.getElementById('activateMicBtn')) {
+    const activateBtn = document.createElement('button');
+    activateBtn.id = 'activateMicBtn';
+    activateBtn.textContent = '🎤 Activer le micro';
+    activateBtn.style.backgroundColor = '#e74c3c';
+    activateBtn.onclick = async () => {
+      const granted = await requestMicrophonePermission();
+      if (granted) {
+        activateBtn.remove();
+      }
+    };
+    container.insertBefore(activateBtn, container.firstChild);
+  }
+}
+
+// Afficher une notification temporaire
+function showNotification(message, type = 'info') {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 15px 25px;
+    background-color: ${type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#3498db'};
+    color: white;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    z-index: 10000;
+    font-size: 16px;
+    max-width: 80%;
+    text-align: center;
+  `;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.transition = 'opacity 0.5s';
+    notification.style.opacity = '0';
+    setTimeout(() => notification.remove(), 500);
+  }, 3000);
+}
 
 function initializeRecognition() {
   if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -68,32 +93,42 @@ function initializeRecognition() {
 
   recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
   recognition.lang = 'fr-FR';
-  recognition.continuous = false;
+  recognition.continuous = false; // Changé pour mieux gérer les arrêts
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.onresult = (event) => {
+    let interimTranscript = '';
     let finalTranscript = '';
+    
     for (let i = event.resultIndex; i < event.results.length; ++i) {
+      const transcript = event.results[i][0].transcript;
       if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
       }
     }
 
     if (finalTranscript) {
       if (recordingStudentInfo) {
         document.getElementById('studentName').value = finalTranscript;
-        evalState.update({ studentName: finalTranscript });
         recordingStudentInfo = false;
         document.getElementById('recordingIndicator').style.display = 'none';
         showNotification('✅ Informations élève enregistrées', 'success');
       } else if (recordingResponse) {
         document.getElementById('responseInput').value = finalTranscript;
         responses[currentQuestion] = finalTranscript;
-        evalState.update({ responses: responses });
         recordingResponse = false;
         document.getElementById('recordingIndicator').style.display = 'none';
         showNotification('✅ Réponse enregistrée', 'success');
+      }
+    } else if (interimTranscript) {
+      // Afficher la transcription temporaire
+      if (recordingStudentInfo) {
+        document.getElementById('studentName').value = interimTranscript;
+      } else if (recordingResponse) {
+        document.getElementById('responseInput').value = interimTranscript;
       }
     }
   };
@@ -102,19 +137,39 @@ function initializeRecognition() {
     console.error('Recognition error:', event.error);
     document.getElementById('recordingIndicator').style.display = 'none';
     
+    // Gestion des erreurs spécifiques
     switch(event.error) {
       case 'not-allowed':
-        showNotification('⚠️ Permission microphone refusée', 'error');
+      case 'service-not-allowed':
+        showNotification('⚠️ Permission microphone refusée. Autorisez l\'accès au micro dans les paramètres du navigateur.', 'error');
+        showMicrophoneActivationButton();
         break;
       case 'no-speech':
-        showNotification('⚠️ Aucun son détecté', 'error');
+        showNotification('⚠️ Aucun son détecté. Parlez plus fort ou vérifiez votre micro.', 'error');
+        break;
+      case 'audio-capture':
+        showNotification('⚠️ Erreur de capture audio. Vérifiez que votre micro est bien branché.', 'error');
+        break;
+      case 'network':
+        showNotification('⚠️ Erreur réseau. Vérifiez votre connexion internet.', 'error');
         break;
       default:
-        showNotification(`⚠️ Erreur: ${event.error}`, 'error');
+        showNotification(`⚠️ Erreur de reconnaissance vocale : ${event.error}`, 'error');
     }
     
     recordingStudentInfo = false;
     recordingResponse = false;
+  };
+
+  recognition.onend = () => {
+    // Redémarrer automatiquement si on est en cours d'enregistrement
+    if (recordingResponse || recordingStudentInfo) {
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('Impossible de redémarrer la reconnaissance:', e);
+      }
+    }
   };
 
   recognitionInitialized = true;
@@ -129,20 +184,25 @@ function startRecordingResponse() {
     return;
   }
 
+  if (!recognitionInitialized) {
+    showNotification('⚠️ Reconnaissance vocale non initialisée', 'error');
+    return;
+  }
+
   recordingResponse = true;
   try {
     recognition.start();
     document.getElementById('recordingIndicator').style.display = 'block';
   } catch (error) {
-    if (error.name !== 'InvalidStateError') {
+    console.error('Erreur au démarrage de la reconnaissance:', error);
+    // La reconnaissance est peut-être déjà active
+    if (error.name === 'InvalidStateError') {
+      console.log('Reconnaissance déjà active');
+    } else {
       showNotification('⚠️ Impossible de démarrer l\'enregistrement', 'error');
     }
   }
 }
-
-// ============================================================
-// SYNTHÈSE VOCALE
-// ============================================================
 
 function askQuestion(index) {
   if (!synthesis.speaking && questions[index]) {
@@ -156,28 +216,30 @@ function askQuestion(index) {
     };
     utterance.onend = () => {
       document.getElementById('synthesisIndicator').style.display = 'none';
+      
+      // Démarrer automatiquement l'enregistrement après la question
       if (microphonePermissionGranted) {
-        setTimeout(() => startRecordingResponse(), 500);
+        setTimeout(() => {
+          startRecordingResponse();
+        }, 500); // Petit délai pour éviter de capturer la fin de la synthèse
+      } else {
+        showNotification('⚠️ Cliquez sur le bouton micro pour répondre', 'info');
       }
     };
     synthesis.speak(utterance);
+  } else {
+    console.error('Synthesis speaking or no question available');
   }
 }
 
-function adjustSpeechRate(delta) {
-  speechRate = Math.max(0.5, Math.min(2.0, speechRate + delta));
-  document.getElementById('speedDisplay').textContent = speechRate.toFixed(1) + 'x';
-}
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-
 function navigateQuestion(direction) {
+  // Arrêter toute reconnaissance en cours
   if (recognition && (recordingResponse || recordingStudentInfo)) {
     try {
       recognition.stop();
-    } catch (e) {}
+    } catch (e) {
+      console.error('Erreur lors de l\'arrêt de la reconnaissance:', e);
+    }
     recordingResponse = false;
     recordingStudentInfo = false;
     document.getElementById('recordingIndicator').style.display = 'none';
@@ -187,36 +249,12 @@ function navigateQuestion(direction) {
   if (currentQuestion < 0) currentQuestion = 0;
   if (currentQuestion >= questions.length) currentQuestion = questions.length - 1;
   
-  evalState.update({ currentQuestion: currentQuestion });
-  
   document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
   document.getElementById('nextQuestion').disabled = (currentQuestion === questions.length - 1);
   document.getElementById('responseInput').value = responses[currentQuestion] || '';
   
-  updateProgressBar();
   askQuestion(currentQuestion);
 }
-
-function updateProgressBar() {
-  const total = questions.length;
-  const current = currentQuestion + 1;
-  const answered = responses.filter(r => r && r.trim() !== '').length;
-  
-  const progressContainer = document.getElementById('progressContainer');
-  const progressFill = document.getElementById('progressFill');
-  const progressText = document.getElementById('progressText');
-  
-  if (total > 0 && progressContainer) {
-    progressContainer.style.display = 'block';
-    const percentage = (current / total) * 100;
-    if (progressFill) progressFill.style.width = percentage + '%';
-    if (progressText) progressText.textContent = `Question ${current} sur ${total} | ${answered} réponse${answered > 1 ? 's' : ''} enregistrée${answered > 1 ? 's' : ''}`;
-  }
-}
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 function exportResponses() {
   const studentInfo = document.getElementById('studentName').value;
@@ -229,27 +267,32 @@ function exportResponses() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
+    // En-tête
     doc.setFontSize(16);
     doc.text('Évaluation - Réponses', 105, 15, { align: 'center' });
     doc.setFontSize(12);
     doc.text(`Élève : ${studentInfo}`, 10, 25);
     doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 10, 32);
     
+    // Questions et réponses
     let yPosition = 45;
     const lineHeight = 7;
     const maxWidth = 190;
     
     questions.forEach((q, i) => {
+      // Vérifier si on a besoin d'une nouvelle page
       if (yPosition > 270) {
         doc.addPage();
         yPosition = 20;
       }
       
+      // Question
       doc.setFont(undefined, 'bold');
       const questionLines = doc.splitTextToSize(`Q${i + 1}: ${q}`, maxWidth);
       doc.text(questionLines, 10, yPosition);
       yPosition += questionLines.length * lineHeight;
       
+      // Réponse
       doc.setFont(undefined, 'normal');
       const response = responses[i] || 'Pas de réponse.';
       const responseLines = doc.splitTextToSize(`Réponse : ${response}`, maxWidth);
@@ -257,41 +300,36 @@ function exportResponses() {
       yPosition += responseLines.length * lineHeight + 5;
     });
     
-    const filename = `evaluation_${studentInfo.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.pdf`;
-    doc.save(filename);
+    doc.save(`evaluation_${studentInfo.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.pdf`);
     showNotification('✅ Réponses exportées avec succès', 'success');
-    
-    setTimeout(() => {
-      if (confirm('Export réussi ! Voulez-vous terminer cette évaluation et vider la session ?')) {
-        evalState.clearState();
-        location.reload();
-      }
-    }, 1000);
-    
   } catch (error) {
     console.error('Erreur lors de l\'export:', error);
     showNotification('❌ Erreur lors de l\'export du PDF', 'error');
   }
 }
 
-// ============================================================
-// DÉMARRAGE DE L'ÉVALUATION
-// ============================================================
+function adjustSpeechRate(delta) {
+  speechRate = Math.max(0.5, Math.min(2.0, speechRate + delta));
+  document.getElementById('speedDisplay').textContent = speechRate.toFixed(1) + 'x';
+}
 
 function startEvaluation() {
-  if (!synthesis || !recognitionInitialized || questions.length === 0) {
-    showNotification('❌ Impossible de démarrer l\'évaluation', 'error');
+  if (!synthesis) {
+    showNotification('❌ Synthèse vocale non disponible', 'error');
+    return;
+  }
+  
+  if (!recognitionInitialized) {
+    showNotification('❌ Reconnaissance vocale non disponible', 'error');
+    return;
+  }
+  
+  if (questions.length === 0) {
+    showNotification('❌ Aucune question trouvée', 'error');
     return;
   }
 
   console.log('Starting evaluation...');
-  
-  evalState.update({
-    questions: questions,
-    responses: responses,
-    currentQuestion: currentQuestion
-  });
-  
   askQuestion(currentQuestion);
   
   const startBtn = document.getElementById('startEval');
@@ -301,75 +339,47 @@ function startEvaluation() {
   document.getElementById('nextQuestion').disabled = (questions.length === 1);
   document.getElementById('exportResponses').disabled = false;
   
-  updateProgressBar();
   showNotification('✅ Évaluation démarrée', 'success');
 }
 
-// ============================================================
-// INITIALISATION AU CHARGEMENT
-// ============================================================
-
+// Initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. Vérifier la compatibilité
-  const compatibility = BrowserCompatibility.initialize();
-  window.evalVoiceCompatibility = compatibility;
-  
-  // 2. Initialiser l'accessibilité
-  AccessibilityManager.initialize();
-  
-  // 3. Initialiser la reconnaissance vocale
-  if (compatibility.isFullyCompatible) {
-    initializeRecognition();
-    await requestMicrophonePermission();
+  // Vérifier le support des APIs
+  if (!('speechSynthesis' in window)) {
+    showNotification('❌ Synthèse vocale non supportée par ce navigateur', 'error');
+    return;
   }
   
-  // 4. Vérifier et restaurer une session existante
-  if (evalState.hasExistingSession()) {
-    const shouldRestore = evalState.promptRestoreSession();
-    if (shouldRestore) {
-      evalState.restoreSession();
-      if (questions.length > 0) {
-        document.getElementById('prevQuestion').disabled = false;
-        document.getElementById('nextQuestion').disabled = false;
-        document.getElementById('exportResponses').disabled = false;
-        updateProgressBar();
-        document.getElementById('questionDisplay').textContent = questions[currentQuestion];
-        document.getElementById('responseInput').value = responses[currentQuestion] || '';
-        showNotification('✅ Session restaurée', 'success');
-      }
-    } else {
-      evalState.clearState();
-    }
+  if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+    showNotification('❌ Reconnaissance vocale non supportée par ce navigateur', 'error');
+    return;
   }
+
+  // Initialiser la reconnaissance vocale
+  initializeRecognition();
   
-  // 5. Démarrer la sauvegarde automatique
-  evalState.startAutoSave(5000);
+  // Demander la permission du micro immédiatement
+  await requestMicrophonePermission();
   
-  // 6. Sauvegarder avant de quitter
-  window.addEventListener('beforeunload', (e) => {
-    evalState.saveState();
-    const hasUnsavedWork = responses.some(r => r && r.trim() !== '');
-    if (hasUnsavedWork) {
-      e.preventDefault();
-      e.returnValue = 'Vous avez des réponses non exportées. Êtes-vous sûr de vouloir quitter ?';
-      return e.returnValue;
-    }
-  });
-  
-  // 7. Event listeners
+  // Event listeners
   const recordStudentInfoBtn = document.getElementById('recordStudentInfo');
   if (recordStudentInfoBtn) {
     recordStudentInfoBtn.addEventListener('click', () => {
       if (!microphonePermissionGranted) {
+        showNotification('⚠️ Veuillez d\'abord autoriser l\'accès au microphone', 'error');
         requestMicrophonePermission();
         return;
       }
+      
       recordingStudentInfo = true;
       try {
         recognition.start();
         document.getElementById('recordingIndicator').style.display = 'block';
+        showNotification('🎤 Parlez maintenant...', 'info');
       } catch (error) {
+        console.error('Erreur au démarrage:', error);
         if (error.name === 'InvalidStateError') {
+          // Reconnaissance déjà active, on la stoppe et on la redémarre
           recognition.stop();
           setTimeout(() => {
             recognition.start();
@@ -384,16 +394,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (responseInput) {
     responseInput.addEventListener('input', (event) => {
       responses[currentQuestion] = event.target.value;
-      // Note: La sauvegarde se fait ici, mais la barre de progression
-      // se met à jour uniquement lors de la navigation
-      evalState.update({ responses: responses });
-    });
-  }
-  
-  const studentNameInput = document.getElementById('studentName');
-  if (studentNameInput) {
-    studentNameInput.addEventListener('change', (e) => {
-      evalState.update({ studentName: e.target.value });
     });
   }
 });
