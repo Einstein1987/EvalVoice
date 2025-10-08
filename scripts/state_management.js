@@ -271,7 +271,6 @@ function navigateQuestionWithState(direction) {
   document.getElementById('nextQuestion').disabled = (currentQuestion === questions.length - 1);
   document.getElementById('responseInput').value = responses[currentQuestion] || '';
   
-  updateProgressBar();
   askQuestion(currentQuestion);
 }
 
