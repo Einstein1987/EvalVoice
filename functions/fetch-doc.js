@@ -15,11 +15,33 @@ const CONFIG = {
   REQUEST_TIMEOUT: 30000,
   
   // Rate limiting (nombre de requêtes par IP par minute)
-  RATE_LIMIT_PER_MINUTE: 10
+  RATE_LIMIT_PER_MINUTE: 10,
+  
+  // Domaines autorisés pour CORS (à configurer via variable d'environnement)
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:8888', 'http://localhost:3000']
 };
 
 // Store pour le rate limiting (en production, utilisez Redis)
 const rateLimitStore = new Map();
+
+/**
+ * Vérifie si l'origine est autorisée
+ */
+function isOriginAllowed(origin) {
+  if (!origin) return false;
+  
+  // En production, vérifier contre la liste blanche
+  if (process.env.NODE_ENV === 'production') {
+    return CONFIG.ALLOWED_ORIGINS.some(allowed => 
+      origin === allowed || origin.endsWith('.netlify.app')
+    );
+  }
+  
+  // En développement, autoriser localhost
+  return CONFIG.ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+}
 
 /**
  * Vérifie si l'URL est valide et autorisée
@@ -169,15 +191,23 @@ async function fetchDocumentWithLimits(url) {
  * Handler principal
  */
 exports.handler = async function(event, context) {
+  // Récupérer l'origine de la requête
+  const origin = event.headers.origin || event.headers.Origin;
+  
+  // Vérifier si l'origine est autorisée
+  const allowedOrigin = isOriginAllowed(origin) ? origin : 'null';
+  
   // Headers CORS sécurisés
   const headers = {
-    'Access-Control-Allow-Origin': '*', // En production, restreindre au domaine spécifique
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Content-Security-Policy': "default-src 'none'; script-src 'none'; object-src 'none'"
   };
 
   // Gérer les requêtes OPTIONS (preflight CORS)
@@ -198,9 +228,18 @@ exports.handler = async function(event, context) {
     };
   }
 
+  // Vérifier que l'origine est autorisée
+  if (allowedOrigin === 'null') {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Origine non autorisée' })
+    };
+  }
+
   try {
     // Récupérer l'IP du client
-    const clientIp = event.headers['x-forwarded-for'] || 
+    const clientIp = event.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                      event.headers['client-ip'] || 
                      'unknown';
 
@@ -248,7 +287,7 @@ exports.handler = async function(event, context) {
     }
 
     // Log sécurisé (sans exposer l'URL complète)
-    console.log(`Requête depuis IP: ${clientIp}, Domaine: ${urlValidation.url.hostname}`);
+    console.log(`[${new Date().toISOString()}] Requête depuis IP: ${clientIp}, Domaine: ${urlValidation.url.hostname}`);
 
     // Télécharger le document
     const downloadResult = await fetchDocumentWithLimits(url);
@@ -276,7 +315,7 @@ exports.handler = async function(event, context) {
 
   } catch (error) {
     // Log l'erreur mais ne pas exposer les détails au client
-    console.error('Erreur serveur:', error);
+    console.error('[ERROR]', error);
     
     return {
       statusCode: 500,
