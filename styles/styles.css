@@ -61,6 +61,67 @@ body {
   box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
 }
 
+/* ============================================================
+   TITRES
+   ============================================================ */
+.app-title {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   position: relative;
+   font-size: 2.5em;
+   flex-wrap: wrap;
+   margin: 0 0 10px 0;
+}
+
+.app-title img {
+    position: absolute;
+    left: 0;
+    width: 100px;
+    height: 100px;
+    flex-shrink: 0;
+}
+
+.title-text {
+    color: var(--text-dark);
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    flex: 1;
+    text-align: center;
+}
+
+h1 {
+  color: var(--text-dark);
+  text-align: center;
+  font-size: 2.5em;
+  margin: 0 0 10px 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  word-wrap: break-word; /* Permet la coupure des longs mots */
+}
+
+h3 {
+  color: var(--text-dark);
+  font-size: 1.3em;
+  margin: 0 0 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap; /* Permet le passage à la ligne */
+}
+
+.subtitle {
+  text-align: center;
+  color: #7f8c8d;
+  font-size: 1.1em;
+  margin: 0 0 20px 0;
+}
+
+
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);
