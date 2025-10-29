@@ -122,6 +122,10 @@ function initializeRecognition() {
         recordingResponse = false;
         document.getElementById('recordingIndicator').style.display = 'none';
         showNotification('✅ Réponse enregistrée', 'success');
+        // Mettre à jour la barre de progression après enregistrement vocal
+        if (typeof updateProgressBar === 'function') {
+          updateProgressBar();
+        }
       }
     } else if (interimTranscript) {
       // Afficher la transcription temporaire
@@ -253,6 +257,11 @@ function navigateQuestion(direction) {
   document.getElementById('nextQuestion').disabled = (currentQuestion === questions.length - 1);
   document.getElementById('responseInput').value = responses[currentQuestion] || '';
   
+  // Mettre à jour la barre de progression à chaque changement de question
+  if (typeof updateProgressBar === 'function') {
+    updateProgressBar();
+  }
+  
   askQuestion(currentQuestion);
 }
 
@@ -330,6 +339,12 @@ function startEvaluation() {
   }
 
   console.log('Starting evaluation...');
+  
+  // Mettre à jour la barre de progression au démarrage
+  if (typeof updateProgressBar === 'function') {
+    updateProgressBar();
+  }
+  
   askQuestion(currentQuestion);
   
   const startBtn = document.getElementById('startEval');
@@ -394,6 +409,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (responseInput) {
     responseInput.addEventListener('input', (event) => {
       responses[currentQuestion] = event.target.value;
+      // Mettre à jour la barre de progression lors de la saisie
+      if (typeof updateProgressBar === 'function') {
+        updateProgressBar();
+      }
     });
   }
 });
