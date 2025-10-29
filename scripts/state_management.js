@@ -168,8 +168,10 @@ function initializeStateManagement() {
         document.getElementById('nextQuestion').disabled = false;
         document.getElementById('exportResponses').disabled = false;
         
-        // Afficher la question courante
-        updateProgressBar();
+        // Afficher la question courante et mettre à jour la barre de progression
+        if (typeof updateProgressBar === 'function') {
+          updateProgressBar();
+        }
         document.getElementById('questionDisplay').textContent = questions[currentQuestion];
         document.getElementById('responseInput').value = responses[currentQuestion] || '';
         
@@ -234,6 +236,11 @@ function startEvaluationWithState() {
     currentQuestion: currentQuestion
   });
   
+  // Mettre à jour la barre de progression au démarrage
+  if (typeof updateProgressBar === 'function') {
+    updateProgressBar();
+  }
+  
   askQuestion(currentQuestion);
   
   const startBtn = document.getElementById('startEval');
@@ -270,6 +277,11 @@ function navigateQuestionWithState(direction) {
   document.getElementById('prevQuestion').disabled = (currentQuestion === 0);
   document.getElementById('nextQuestion').disabled = (currentQuestion === questions.length - 1);
   document.getElementById('responseInput').value = responses[currentQuestion] || '';
+  
+  // Mettre à jour la barre de progression à chaque changement de question
+  if (typeof updateProgressBar === 'function') {
+    updateProgressBar();
+  }
   
   askQuestion(currentQuestion);
 }
