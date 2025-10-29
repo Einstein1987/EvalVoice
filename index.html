@@ -65,6 +65,16 @@
             <!-- Affichage de la question -->
             <div id="questionDisplay" aria-live="polite"></div>
             
+            <!-- Contrôles de lecture (NOUVEAUX BOUTONS) -->
+            <div class="playback-controls" style="display: flex; justify-content: center; gap: 10px; margin: 15px 0;">
+                <button id="stopSpeech" title="Arrêter la lecture vocale" disabled style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                    ⏹️ Stop
+                </button>
+                <button id="replayQuestion" title="Rejouer la question" disabled style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                    🔁 Rejouer
+                </button>
+            </div>
+            
             <!-- Réponse -->
             <div class="input-group">
                 <input type="text" id="responseInput" placeholder="Réponse (vocale ou écrite)" aria-label="Votre réponse">
@@ -99,200 +109,114 @@
     </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', (event) => {
-        if ('speechSynthesis' in window && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-            initializeRecognition();
-        } else {
-            alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
-        }
-
-        // Event listeners
-        document.getElementById('recordStudentInfo').addEventListener('click', () => {
-            recordingStudentInfo = true;
-            recognition.start();
-            document.getElementById('recordingIndicator').style.display = 'block';
-        });
-
-        document.getElementById('responseInput').addEventListener('input', (event) => {
-            responses[currentQuestion] = event.target.value;
-            updateProgressBar();
-        });
-
-        document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
-        document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
-        document.getElementById('exportResponses').addEventListener('click', exportResponses);
-        document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
-        document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
-        
-        // Raccourcis clavier
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey || e.metaKey) {
-                switch(e.key) {
-                    case 'ArrowLeft':
-                        e.preventDefault();
-                        if (!document.getElementById('prevQuestion').disabled) {
-                            navigateQuestion(-1);
-                        }
-                        break;
-                    case 'ArrowRight':
-                        e.preventDefault();
-                        if (!document.getElementById('nextQuestion').disabled) {
-                            navigateQuestion(1);
-                        }
-                        break;
-                }
-            }
-        });
-    });
-
     // Fonction pour mettre à jour la barre de progression
     function updateProgressBar() {
-        const total = questions.length;
-        const current = currentQuestion + 1;
-        const answered = responses.filter(r => r && r.trim() !== '').length;
-        
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        
-        if (total > 0) {
-            progressContainer.style.display = 'block';
-            const percentage = (current / total) * 100;
-            progressFill.style.width = percentage + '%';
-            progressText.textContent = `Question ${current} sur ${total} | ${answered} réponse${answered > 1 ? 's' : ''} enregistrée${answered > 1 ? 's' : ''}`;
-        }
+      if (window.evalVoiceApp) {
+        window.evalVoiceApp.updateProgressBar();
+      }
     }
 
     async function loadDocument() {
-        const urlInput = document.getElementById('urlInput').value.trim();
-        
-        if (!urlInput) {
-            showNotification('⚠️ Veuillez entrer une URL', 'error');
-            return;
+      const urlInput = document.getElementById('urlInput').value.trim();
+      
+      if (!urlInput) {
+        if (window.evalVoiceApp) {
+          window.evalVoiceApp.showNotification('⚠️ Veuillez entrer une URL', 'error');
+        }
+        return;
+      }
+      
+      // Extraire l'ID du document
+      const docId = urlInput.match(/[-\w]{25,}/);
+      
+      if (!docId) {
+        if (window.evalVoiceApp) {
+          window.evalVoiceApp.showNotification('⚠️ URL Google Docs invalide', 'error');
+        }
+        return;
+      }
+      
+      const pdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
+      
+      // Afficher un indicateur de chargement
+      const loadButton = document.getElementById('loadDocumentButton');
+      const originalText = loadButton.innerHTML;
+      loadButton.innerHTML = '<span class="loading"></span> Chargement...';
+      loadButton.disabled = true;
+
+      try {
+        if (window.evalVoiceApp) {
+          window.evalVoiceApp.showNotification('⏳ Chargement du document...', 'info');
         }
         
-        // Extraire l'ID du document
-        const docId = urlInput.match(/[-\w]{25,}/);
-        
-        if (!docId) {
-            showNotification('⚠️ URL Google Docs invalide', 'error');
-            return;
+        // Appel à la fonction serverless
+        const response = await fetch('/.netlify/functions/fetch-doc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: pdfUrl })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Erreur HTTP ${response.status}`);
         }
-        
-        const pdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
-        
-        // Afficher un indicateur de chargement
-        const loadButton = document.getElementById('loadDocumentButton');
-        const originalText = loadButton.innerHTML;
-        loadButton.innerHTML = '<span class="loading"></span> Chargement...';
-        loadButton.disabled = true;
 
-        try {
-            showNotification('⏳ Chargement du document...', 'info');
-            
-            // Appel à la fonction serverless
-            const response = await fetch('/.netlify/functions/fetch-doc', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: pdfUrl })
-            });
+        const blob = await response.blob();
+        const urlBlob = URL.createObjectURL(blob);
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Erreur HTTP ${response.status}`);
-            }
+        // Afficher le PDF
+        const documentViewer = document.getElementById('pdfViewer');
+        documentViewer.src = urlBlob;
 
-            const blob = await response.blob();
-            const urlBlob = URL.createObjectURL(blob);
+        // Extraire le texte
+        const pdfData = new Uint8Array(await blob.arrayBuffer());
+        const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
 
-            // Afficher le PDF
-            const documentViewer = document.getElementById('pdfViewer');
-            documentViewer.src = urlBlob;
-
-            // Extraire le texte
-            const pdfData = new Uint8Array(await blob.arrayBuffer());
-            const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-
-            let textContent = '';
-            for (let i = 1; i <= pdfDoc.numPages; i++) {
-                const page = await pdfDoc.getPage(i);
-                const textContentObj = await page.getTextContent();
-                textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
-            }
-
-            textContent = textContent.replace(/\s\s+/g, ' ');
-            console.log("Extracted Text Content: ", textContent);
-
-            // Extraire les questions
-            extractQuestions(textContent);
-
-            // Démarrer l'évaluation
-            if (questions.length > 0) {
-                startEvaluation();
-                showNotification(`✅ ${questions.length} question${questions.length > 1 ? 's' : ''} chargée${questions.length > 1 ? 's' : ''}`, 'success');
-            } else {
-                showNotification('⚠️ Aucune question trouvée dans le document', 'error');
-            }
-            
-        } catch (error) {
-            console.error('Erreur lors du chargement du document:', error);
-            showNotification(`❌ ${error.message}`, 'error');
-        } finally {
-            loadButton.innerHTML = originalText;
-            loadButton.disabled = false;
+        let textContent = '';
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+          const page = await pdfDoc.getPage(i);
+          const textContentObj = await page.getTextContent();
+          textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
         }
-    }
 
-    function extractQuestions(textContent) {
         textContent = textContent.replace(/\s\s+/g, ' ');
-        console.log("Cleaned Text Content: ", textContent);
+        console.log("Extracted Text Content: ", textContent);
+
+        // Extraire les questions avec la nouvelle méthode
+        if (window.evalVoiceApp) {
+          const success = window.evalVoiceApp.extractQuestions(textContent);
+          
+          if (success) {
+            // Démarrer l'évaluation
+            window.evalVoiceApp.startEvaluation();
+            window.evalVoiceApp.showNotification(
+              `✅ ${window.evalVoiceApp.questions.length} question${window.evalVoiceApp.questions.length > 1 ? 's' : ''} chargée${window.evalVoiceApp.questions.length > 1 ? 's' : ''}`, 
+              'success'
+            );
+          } else {
+            window.evalVoiceApp.showNotification('⚠️ Aucune question trouvée dans le document', 'error');
+          }
+        }
         
-        let questionsArray = [];
-        // Pattern amélioré pour détecter différents formats de questions
-        let questionPattern = /(?:Question\s+\d+\s*[:\-]|\d+\s*[\)\.]\s*|Q\d+\s*[:\-])/gi;
-        let match;
-        let lastIndex = 0;
-
-        while ((match = questionPattern.exec(textContent)) !== null) {
-            if (questionsArray.length > 0) {
-                questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex, match.index).trim();
-            }
-            questionsArray.push({ index: match.index, text: match[0] });
-            lastIndex = questionPattern.lastIndex;
+      } catch (error) {
+        console.error('Erreur lors du chargement du document:', error);
+        if (window.evalVoiceApp) {
+          window.evalVoiceApp.showNotification(`❌ ${error.message}`, 'error');
         }
-
-        if (questionsArray.length > 0) {
-            questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex).trim();
-        }
-
-        questions = questionsArray.map(q => q.text);
-        responses = new Array(questions.length).fill('');
-        
-        console.log("Extracted Questions : ", questions);
-
-        if (questions.length === 0) {
-            console.log("No questions found.");
-        }
+      } finally {
+        loadButton.innerHTML = originalText;
+        loadButton.disabled = false;
+      }
     }
 
-    // Fonction helper pour afficher des notifications (définie dans evalvoice.js)
-    function showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `message ${type}`;
-        notification.textContent = message;
-        
-        const container = document.querySelector('.left-pane');
-        container.insertBefore(notification, container.firstChild);
-        
-        setTimeout(() => {
-            notification.style.transition = 'opacity 0.5s, transform 0.5s';
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateY(-20px)';
-            setTimeout(() => notification.remove(), 500);
-        }, 3000);
-    }
+    // Message d'aide au chargement
+    window.addEventListener('load', () => {
+      console.log('✅ Page chargée');
+      console.log('💡 Astuce: Appuyez sur Échap pour arrêter la lecture ou l\'enregistrement');
+      console.log('💡 Astuce: Utilisez Alt+Flèches pour naviguer entre les questions');
+    });
   </script>
 </body>
 </html>
