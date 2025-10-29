@@ -16,32 +16,46 @@
             <button id="loadPdfButton" onclick="window.location.href='index.html'">Gdoc</button>
         </div>
         <div class="left-pane">
-            <h1>EvalVoice</h1>
+            <h1>📚 EvalVoice</h1>
             <div class="input-group">
                 <input type="text" id="studentName" placeholder="Prénom, Nom, Classe">
-                <button id="recordStudentInfo"><span>&#127897;</span></button>
+                <button id="recordStudentInfo"><span>🎤</span></button>
             </div>
             <div class="centre">
                 <p>Téléchargez un fichier PDF <br> puis cliquez sur "Démarrer l'évaluation" pour commencer.</p>
                 <input type="file" id="fileInput" accept="application/pdf">
-                <button id="startEval" disabled>Démarrer l'évaluation</button><br>
-                <button id="prevQuestion" disabled>Question précédente</button>
-                <button id="nextQuestion" disabled>Question suivante</button>
+                <button id="startEval" disabled>Démarrer l'évaluation</button>
             </div>
+            
+            <!-- Barre de progression -->
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progressText">Question 0 sur 0</div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="navigation-buttons">
+                <button id="prevQuestion" disabled>⬅️ Précédente</button>
+                <button id="nextQuestion" disabled>Suivante ➡️</button>
+            </div>
+            
             <div id="questionDisplay"></div>
             <div class="input-group">
-                <input type="text" id="responseInput" placeholder="Réponse">
+                <input type="text" id="responseInput" placeholder="Réponse (vocale ou écrite)">
             </div>
             <div class="feedback">
                 <div id="recordingIndicator" style="display: none;">🎙️ Enregistrement...</div>
                 <div id="synthesisIndicator" style="display: none;">🔊 Lecture...</div>
             </div>
-            <div class="centre">
-                <button id="speedDown">-</button>
+            <div class="centre speed-controls">
+                <button id="speedDown" title="Ralentir la lecture">−</button>
                 <span id="speedDisplay">1.0x</span>
-                <button id="speedUp">+</button>   
-                <br>
-                <button id="exportResponses" disabled>Exporter les réponses</button>
+                <button id="speedUp" title="Accélérer la lecture">+</button>   
+            </div>
+            <div class="centre">
+                <button id="exportResponses" disabled>💾 Exporter les réponses</button>
             </div>
         </div>
         <div class="right-pane">
@@ -56,6 +70,23 @@
     alert("Votre navigateur ne supporte pas la synthèse vocale ou la reconnaissance vocale.");
   }
 
+    // Fonction pour mettre à jour la barre de progression
+    function updateProgressBar() {
+        const total = questions.length;
+        const current = currentQuestion + 1;
+        const answered = responses.filter(r => r && r.trim() !== '').length;
+        
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        if (total > 0) {
+            progressContainer.style.display = 'block';
+            const percentage = (current / total) * 100;
+            progressFill.style.width = percentage + '%';
+            progressText.textContent = `Question ${current} sur ${total} | ${answered} réponse${answered > 1 ? 's' : ''} enregistrée${answered > 1 ? 's' : ''}`;
+        }
+    }
 
     document.getElementById('recordStudentInfo').addEventListener('click', () => {
       recordingStudentInfo = true;
@@ -65,15 +96,46 @@
 
     document.getElementById('responseInput').addEventListener('input', (event) => {
       responses[currentQuestion] = event.target.value;
+      // Mettre à jour la barre de progression lors de la saisie
+      if (typeof updateProgressBar === 'function') {
+        updateProgressBar();
+      }
     });
 
     document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-    document.getElementById('startEval').addEventListener('click', startEvaluation);
+    document.getElementById('startEval').addEventListener('click', () => {
+      startEvaluation();
+      // Mettre à jour la barre de progression au démarrage
+      if (typeof updateProgressBar === 'function') {
+        updateProgressBar();
+      }
+    });
+    
     document.getElementById('prevQuestion').addEventListener('click', () => navigateQuestion(-1));
     document.getElementById('nextQuestion').addEventListener('click', () => navigateQuestion(1));
     document.getElementById('exportResponses').addEventListener('click', exportResponses);
     document.getElementById('speedDown').addEventListener('click', () => adjustSpeechRate(-0.1));
     document.getElementById('speedUp').addEventListener('click', () => adjustSpeechRate(0.1));
+
+    // Raccourcis clavier
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (!document.getElementById('prevQuestion').disabled) {
+                        navigateQuestion(-1);
+                    }
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (!document.getElementById('nextQuestion').disabled) {
+                        navigateQuestion(1);
+                    }
+                    break;
+            }
+        }
+    });
 
     function requestMicrophoneAccess() {
       return navigator.mediaDevices.getUserMedia({ audio: true })
@@ -125,7 +187,8 @@
       console.log("Cleaned Text Content: ", textContent);
       
       let questionsArray = [];
-      let questionPattern = /(?:Question \d+ :|\d+\)|Question :)/gi;
+      // Pattern amélioré pour détecter différents formats de questions (cohérent avec index.html)
+      let questionPattern = /(?:Question\s+\d+\s*[:\-]|\d+\s*[\)\.]\s*|Q\d+\s*[:\-])/gi;
       let match;
       let lastIndex = 0;
 
@@ -142,14 +205,37 @@
       }
 
       questions = questionsArray.map(q => q.text);
+      responses = new Array(questions.length).fill('');
+      
       console.log("Extracted Questions : ", questions);
 
       if (questions.length > 0) {
         document.getElementById('startEval').disabled = false;
+        // Afficher une notification du nombre de questions trouvées
+        if (typeof showNotification === 'function') {
+          showNotification(`✅ ${questions.length} question${questions.length > 1 ? 's' : ''} trouvée${questions.length > 1 ? 's' : ''}`, 'success');
+        }
       } else {
         console.log("No questions found.");
         alert("Aucune question trouvée dans le document PDF.");
       }
+    }
+
+    // Fonction helper pour afficher des notifications (optionnelle pour pdf.html)
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `message ${type}`;
+        notification.textContent = message;
+        
+        const container = document.querySelector('.left-pane');
+        container.insertBefore(notification, container.firstChild);
+        
+        setTimeout(() => {
+            notification.style.transition = 'opacity 0.5s, transform 0.5s';
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateY(-20px)';
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
     }
   </script>
 </body>
