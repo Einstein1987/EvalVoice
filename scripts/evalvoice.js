@@ -597,87 +597,129 @@ class EvalVoiceApp {
     this.showNotification(`Vitesse: ${this.speechRate.toFixed(1)}x`, 'info');
   }
 
-  /**
-   * Extraire les questions du texte (VERSION AMÉLIORÉE)
-   */
-  extractQuestions(textContent) {
-    textContent = textContent.replace(/\s\s+/g, ' ').trim();
-    console.log("Texte nettoyé:", textContent.substring(0, 200) + "...");
-    
-    let questionsArray = [];
-    
-    // Patterns multiples pour détecter différents formats
-    const patterns = [
-      // "Question 1:", "Question 1 -", "Question 1)"
-      /(?:Question\s+\d+)\s*[:\-\)\.]/gi,
-      // "Q1:", "Q1 -", "Q1)"
-      /Q\d+\s*[:\-\)\.]/gi,
-      // "1)", "1.", "1-" en début de ligne ou après saut de ligne
-      /(?:^|\n)\s*\d+\s*[\)\.\-:]\s+/gm,
-      // "Exercice 1:", "Problème 2:", "Activité 3:"
-      /(?:Exercice|Problème|Activité|Consigne)\s+\d+\s*[:\-\.]/gi
-    ];
+/**
+ * Extraire les questions du texte
+ * Cette version détecte mieux les différents formats de questions
+ */
+extractQuestions(textContent) {
+  // Nettoyer le texte
+  textContent = textContent.replace(/\s\s+/g, ' ').trim();
+  console.log("📄 Texte nettoyé:", textContent.substring(0, 200) + "...");
+  
+  let questionsArray = [];
+  
+  // 🎯 PATTERNS AMÉLIORÉS - Dans l'ordre de priorité
+  const patterns = [
+    {
+      name: 'Question numérotée classique',
+      regex: /Question\s+(\d+)\s*[:\-\)\.]/gi,
+      priority: 1
+    },
+    {
+      name: 'Q + numéro',
+      regex: /\bQ(\d+)\s*[:\-\)\.]/gi,
+      priority: 2
+    },
+    {
+      name: 'Numéro en début de ligne',
+      regex: /(?:^|\n)\s*(\d+)\s*[\)\.\-:]\s+(?=[A-ZÀ-Ú])/gm,
+      priority: 3
+    },
+    {
+      name: 'Numéro suivi de point',
+      regex: /\b(\d+)\.\s+(?=[A-ZÀ-Ú][a-zà-ú])/g,
+      priority: 4
+    }
+  ];
 
-    // Essayer chaque pattern
-    for (const pattern of patterns) {
-      const matches = [...textContent.matchAll(pattern)];
+  // Essayer chaque pattern dans l'ordre de priorité
+  for (const patternObj of patterns) {
+    const matches = [...textContent.matchAll(patternObj.regex)];
+    
+    if (matches.length > 1) { // Au moins 2 questions trouvées
+      console.log(`✅ Pattern "${patternObj.name}" trouvé: ${matches.length} correspondances`);
       
-      if (matches.length > 0) {
-        console.log(`✅ Pattern trouvé: ${pattern}, ${matches.length} correspondances`);
+      matches.forEach((match, idx) => {
+        const startIndex = match.index;
+        const endIndex = idx < matches.length - 1 ? matches[idx + 1].index : textContent.length;
         
-        let lastIndex = 0;
+        // Extraire le texte de la question
+        let questionText = textContent.substring(startIndex, endIndex).trim();
         
-        matches.forEach((match, idx) => {
-          if (questionsArray.length > 0) {
-            // Ajouter le texte de la question précédente
-            const endIndex = match.index;
-            questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex, endIndex).trim();
-          }
-          
-          // Créer une nouvelle question
-          questionsArray.push({
-            index: match.index,
-            text: match[0]
-          });
-          
-          lastIndex = match.index + match[0].length;
+        // Nettoyer les espaces multiples et sauts de ligne excessifs
+        questionText = questionText.replace(/\n\s*\n/g, '\n').replace(/\s+/g, ' ');
+        
+        questionsArray.push({
+          number: idx + 1,
+          text: questionText
         });
-        
-        // Ajouter le texte de la dernière question
-        if (questionsArray.length > 0) {
-          questionsArray[questionsArray.length - 1].text += textContent.substring(lastIndex).trim();
-        }
-        
-        // Si on a trouvé des questions, on arrête
-        if (questionsArray.length > 0) break;
+      });
+      
+      // Si on a trouvé des questions, on arrête
+      if (questionsArray.length > 1) {
+        console.log(`🎯 ${questionsArray.length} questions extraites avec le pattern "${patternObj.name}"`);
+        break;
+      } else {
+        // Réinitialiser si moins de 2 questions
+        questionsArray = [];
       }
     }
-
-    // Si aucune question trouvée, créer une seule question avec tout le texte
-    if (questionsArray.length === 0) {
-      console.warn('⚠️ Aucun pattern trouvé, création d\'une question unique');
-      questionsArray = [{
-        index: 0,
-        text: textContent
-      }];
-    }
-
-    this.questions = questionsArray.map(q => q.text.trim()).filter(q => q.length > 0);
-    this.responses = new Array(this.questions.length).fill('');
-    
-    console.log(`✅ ${this.questions.length} question(s) extraite(s)`);
-    console.log("Questions:", this.questions);
-
-    // Sauvegarder dans le state manager
-    if (this.stateManager) {
-      this.stateManager.update({
-        questions: this.questions,
-        responses: this.responses
-      });
-    }
-
-    return this.questions.length > 0;
   }
+
+  // 🔍 Si aucun pattern n'a fonctionné, essayer une approche alternative
+  if (questionsArray.length === 0) {
+    console.warn('⚠️ Aucun pattern standard trouvé, essai de découpage intelligent...');
+    
+    // Essayer de découper sur les doubles sauts de ligne
+    const paragraphs = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 20);
+    
+    if (paragraphs.length > 1) {
+      console.log(`📋 Découpage en ${paragraphs.length} paragraphes`);
+      questionsArray = paragraphs.map((p, idx) => ({
+        number: idx + 1,
+        text: p.trim()
+      }));
+    } else {
+      // Essayer de découper sur les sauts de ligne simples avec numéros
+      const lines = textContent.split('\n').filter(l => l.trim().length > 10);
+      
+      if (lines.length > 1) {
+        console.log(`📝 Découpage en ${lines.length} lignes`);
+        questionsArray = lines.map((l, idx) => ({
+          number: idx + 1,
+          text: l.trim()
+        }));
+      } else {
+        // Dernier recours : tout mettre dans une seule question
+        console.warn('⚠️ Impossible de découper, création d\'une question unique');
+        questionsArray = [{
+          number: 1,
+          text: textContent
+        }];
+      }
+    }
+  }
+
+  // Filtrer les questions vides et trop courtes
+  questionsArray = questionsArray.filter(q => q.text.length > 10);
+
+  // Mettre à jour l'état
+  this.questions = questionsArray.map(q => q.text);
+  this.responses = new Array(this.questions.length).fill('');
+  
+  console.log(`✅ ${this.questions.length} question(s) finale(s) extraite(s)`);
+  console.log("📝 Questions:", this.questions.map((q, i) => `Q${i+1}: ${q.substring(0, 50)}...`));
+
+  // Sauvegarder dans le state manager
+  if (this.stateManager) {
+    this.stateManager.update({
+      questions: this.questions,
+      responses: this.responses
+    });
+  }
+
+  return this.questions.length > 0;
+}
 
   /**
    * Démarrer l'évaluation
