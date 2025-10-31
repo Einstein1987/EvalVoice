@@ -9,6 +9,7 @@ class EvalVoiceApp {
     this.questions = [];
     this.currentQuestion = 0;
     this.responses = [];
+    this.evaluationTitle = '';
     
     // Services vocaux
     this.recognition = null;
