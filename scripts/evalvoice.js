@@ -604,8 +604,6 @@ extractQuestions(textContent) {
   // Nettoyer le texte
   textContent = textContent.replace(/\s\s+/g, ' ').trim();
   console.log("📄 Texte nettoyé:", textContent.substring(0, 200) + "...");
-
-this.extractTitle(textContent);
   
   let questionsArray = [];
   
