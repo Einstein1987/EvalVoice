@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test CORS - EvalVoice</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+    h1 {
+      color: #2c3e50;
+      margin-top: 0;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 2px solid #ecf0f1;
+      border-radius: 10px;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    button {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 5px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #bdc3c7;
+      border-radius: 8px;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+    pre {
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    .test-info {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔒 Test CORS - EvalVoice</h1>
+    
+    <div class="test-info">
+      <strong>Origine actuelle :</strong> <code id="currentOrigin"></code><br>
+      <strong>Protocole :</strong> <code id="currentProtocol"></code>
+    </div>
+
+    <div class="test-section">
+      <h2>📝 Test 1 : Fonction Netlify</h2>
+      <p>Teste si la fonction serverless répond correctement</p>
+      
+      <input type="text" id="testUrl" 
+             placeholder="URL Google Docs (optionnel, utilise une URL de test par défaut)"
+             value="">
+      
+      <button onclick="testNetlifyFunction()">🚀 Tester la fonction</button>
+      
+      <div id="test1Result"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>🔍 Test 2 : Headers CORS</h2>
+      <p>Vérifie les headers CORS de la réponse</p>
+      
+      <button onclick="testCorsHeaders()">🔬 Analyser les headers</button>
+      
+      <div id="test2Result"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>📋 Test 3 : Chargement Complet</h2>
+      <p>Simule le chargement complet d'un document comme dans l'app</p>
+      
+      <button onclick="testFullLoad()">📄 Test complet</button>
+      
+      <div id="test3Result"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>ℹ️ Informations de Configuration</h2>
+      <div id="configInfo" class="info">
+        <p>Pour configurer le mode CORS, ajoutez ces variables dans Netlify :</p>
+        <pre>CORS_MODE=permissive
+ALLOWED_ORIGINS=https://votre-site.netlify.app
+DEBUG_MODE=true</pre>
+        <p><strong>Mode actuel détecté</strong> : Sera affiché après le test</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Afficher l'origine actuelle
+    document.getElementById('currentOrigin').textContent = window.location.origin;
+    document.getElementById('currentProtocol').textContent = window.location.protocol;
+
+    // URL de test par défaut (document Google Docs public d'exemple)
+    const DEFAULT_TEST_URL = 'https://docs.google.com/document/d/1234567890abcdef/export?format=pdf';
+
+    async function testNetlifyFunction() {
+      const resultDiv = document.getElementById('test1Result');
+      resultDiv.innerHTML = '<div class="info">⏳ Test en cours...</div>';
+
+      const testUrl = document.getElementById('testUrl').value.trim() || DEFAULT_TEST_URL;
+      
+      try {
+        const response = await fetch('/.netlify/functions/fetch-doc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: testUrl })
+        });
+
+        const responseData = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          ok: response.ok
+        };
+
+        let bodyText = '';
+        try {
+          const text = await response.text();
+          bodyText = text.substring(0, 200);
+        } catch (e) {
+          bodyText = 'Corps binaire (PDF)';
+        }
+
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <div class="status success">
+              ✅ Succès ! La fonction répond correctement.
+            </div>
+            <pre>${JSON.stringify(responseData, null, 2)}</pre>
+            <p><strong>Corps de la réponse :</strong> ${bodyText}...</p>
+          `;
+        } else {
+          // Erreur HTTP
+          resultDiv.innerHTML = `
+            <div class="status error">
+              ❌ Erreur HTTP ${response.status}
+            </div>
+            <pre>${JSON.stringify(responseData, null, 2)}</pre>
+            <p><strong>Réponse :</strong> ${bodyText}</p>
+          `;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            ❌ Erreur réseau ou CORS : ${error.message}
+          </div>
+          <p>Vérifiez que :</p>
+          <ul>
+            <li>La fonction Netlify est bien déployée</li>
+            <li>Vous êtes sur un domaine HTTPS (ou localhost)</li>
+            <li>Le mode CORS est configuré correctement</li>
+          </ul>
+        `;
+      }
+    }
+
+    async function testCorsHeaders() {
+      const resultDiv = document.getElementById('test2Result');
+      resultDiv.innerHTML = '<div class="info">⏳ Analyse en cours...</div>';
+
+      try {
+        // Faire une requête OPTIONS (preflight)
+        const optionsResponse = await fetch('/.netlify/functions/fetch-doc', {
+          method: 'OPTIONS'
+        });
+
+        const optionsHeaders = Object.fromEntries(optionsResponse.headers.entries());
+
+        // Faire une vraie requête POST
+        const postResponse = await fetch('/.netlify/functions/fetch-doc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: DEFAULT_TEST_URL })
+        });
+
+        const postHeaders = Object.fromEntries(postResponse.headers.entries());
+
+        // Analyser les headers CORS
+        const corsAnalysis = {
+          'Access-Control-Allow-Origin': postHeaders['access-control-allow-origin'] || '❌ Manquant',
+          'Access-Control-Allow-Methods': postHeaders['access-control-allow-methods'] || '❌ Manquant',
+          'Access-Control-Allow-Headers': postHeaders['access-control-allow-headers'] || '❌ Manquant'
+        };
+
+        const isPermissive = corsAnalysis['Access-Control-Allow-Origin'] === '*' || 
+                           corsAnalysis['Access-Control-Allow-Origin'] === window.location.origin;
+
+        resultDiv.innerHTML = `
+          <div class="status ${isPermissive ? 'success' : 'error'}">
+            ${isPermissive ? '✅' : '⚠️'} Mode CORS détecté : ${isPermissive ? 'Permissif ou Configuré' : 'Restreint'}
+          </div>
+          
+          <h3>Headers CORS (OPTIONS) :</h3>
+          <pre>${JSON.stringify(optionsHeaders, null, 2)}</pre>
+          
+          <h3>Headers CORS (POST) :</h3>
+          <pre>${JSON.stringify(corsAnalysis, null, 2)}</pre>
+          
+          <div class="info">
+            <p><strong>Interprétation :</strong></p>
+            <ul>
+              <li>Origin = '*' → Mode permissif (toutes origines acceptées)</li>
+              <li>Origin = '${window.location.origin}' → Votre origine est autorisée</li>
+              <li>Origin = 'null' → Votre origine est refusée (mode strict)</li>
+            </ul>
+          </div>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            ❌ Erreur lors de l'analyse : ${error.message}
+          </div>
+        `;
+      }
+    }
+
+    async function testFullLoad() {
+      const resultDiv = document.getElementById('test3Result');
+      resultDiv.innerHTML = '<div class="info">⏳ Test de chargement complet...</div>';
+
+      const steps = [];
+
+      try {
+        // Étape 1 : Appel à la fonction
+        steps.push('1️⃣ Appel à la fonction Netlify...');
+        resultDiv.innerHTML = '<div class="info">' + steps.join('<br>') + '</div>';
+
+        const response = await fetch('/.netlify/functions/fetch-doc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: DEFAULT_TEST_URL })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        steps.push('✅ Réponse reçue (status ' + response.status + ')');
+        resultDiv.innerHTML = '<div class="info">' + steps.join('<br>') + '</div>';
+
+        // Étape 2 : Téléchargement du blob
+        steps.push('2️⃣ Téléchargement du PDF...');
+        resultDiv.innerHTML = '<div class="info">' + steps.join('<br>') + '</div>';
+
+        const blob = await response.blob();
+        steps.push(`✅ PDF téléchargé (${(blob.size / 1024).toFixed(2)} KB)`);
+        resultDiv.innerHTML = '<div class="info">' + steps.join('<br>') + '</div>';
+
+        // Étape 3 : Création de l'URL
+        steps.push('3️⃣ Création de l\'URL blob...');
+        resultDiv.innerHTML = '<div class="info">' + steps.join('<br>') + '</div>';
+
+        const urlBlob = URL.createObjectURL(blob);
+        steps.push('✅ URL blob créée');
+        
+        // Résultat final
+        resultDiv.innerHTML = `
+          <div class="status success">
+            ✅ Test complet réussi !
+          </div>
+          <div class="info">
+            ${steps.join('<br>')}
+            <br><br>
+            <strong>Résultat :</strong> Le chargement de documents fonctionne correctement.
+            <br>
+            <a href="${urlBlob}" target="_blank">📄 Ouvrir le PDF de test</a>
+          </div>
+        `;
+      } catch (error) {
+        steps.push(`❌ ERREUR : ${error.message}`);
+        resultDiv.innerHTML = `
+          <div class="status error">
+            ❌ Échec du test complet
+          </div>
+          <div class="info">
+            ${steps.join('<br>')}
+          </div>
+          <p><strong>Cause probable :</strong></p>
+          <ul>
+            <li>Configuration CORS incorrecte</li>
+            <li>URL de test invalide</li>
+            <li>Fonction Netlify non déployée</li>
+          </ul>
+        `;
+      }
+    }
+
+    // Lancer un test automatique au chargement de la page
+    window.addEventListener('load', () => {
+      console.log('🔍 Page de test CORS chargée');
+      console.log('Origine:', window.location.origin);
+    });
+  </script>
+</body>
+</html>
