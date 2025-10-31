@@ -597,7 +597,72 @@ class EvalVoiceApp {
     document.getElementById('speedDisplay').textContent = this.speechRate.toFixed(1) + 'x';
     this.showNotification(`Vitesse: ${this.speechRate.toFixed(1)}x`, 'info');
   }
-
+/**
+ * Extraire le titre de l'évaluation
+ * Le titre est généralement la première ligne ou les premières lignes avant les questions
+ */
+extractTitle(textContent) {
+  let title = '';
+  
+  // Nettoyer le texte
+  const cleanText = textContent.replace(/\s\s+/g, ' ').trim();
+  
+  // Stratégie 1 : Chercher des mots-clés de titre
+  const titlePatterns = [
+    /(?:ÉVALUATION|CONTRÔLE|TEST|EXAMEN|DEVOIR|DS|DM|INTERROGATION)[^\n]*/i,
+    /(?:Evaluation|Controle|Test|Examen|Devoir)[^\n]*/i
+  ];
+  
+  for (const pattern of titlePatterns) {
+    const match = cleanText.match(pattern);
+    if (match) {
+      title = match[0].trim();
+      console.log('📋 Titre trouvé par pattern:', title);
+      break;
+    }
+  }
+  
+  // Stratégie 2 : Si pas de titre trouvé, prendre la première ligne non vide
+  if (!title) {
+    const lines = cleanText.split('\n').filter(l => l.trim().length > 0);
+    if (lines.length > 0) {
+      // Prendre la première ligne si elle est courte (< 100 caractères)
+      const firstLine = lines[0].trim();
+      if (firstLine.length < 100 && !firstLine.match(/^(Question|Q\d|Exercice|\d+[\.\)])/)) {
+        title = firstLine;
+        console.log('📋 Titre trouvé (première ligne):', title);
+      }
+    }
+  }
+  
+  // Stratégie 3 : Si toujours pas de titre, prendre les 2-3 premières lignes
+  if (!title) {
+    const lines = cleanText.split('\n').filter(l => l.trim().length > 0);
+    const potentialTitle = lines.slice(0, 2).join(' ').trim();
+    if (potentialTitle.length < 150) {
+      title = potentialTitle;
+      console.log('📋 Titre trouvé (premières lignes):', title);
+    }
+  }
+  
+  // Si on n'a toujours rien, mettre un titre par défaut
+  if (!title) {
+    title = 'Évaluation';
+    console.log('📋 Titre par défaut utilisé:', title);
+  }
+  
+  // Nettoyer le titre (supprimer les espaces multiples, limiter la longueur)
+  title = title.replace(/\s\s+/g, ' ').substring(0, 150);
+  
+  this.evaluationTitle = title;
+  
+  // Sauvegarder dans le state manager
+  if (this.stateManager) {
+    this.stateManager.update({ evaluationTitle: title });
+  }
+  
+  return title;
+}
 /**
  * Extraire les questions du texte
  * Cette version détecte mieux les différents formats de questions
@@ -606,6 +671,8 @@ extractQuestions(textContent) {
   // Nettoyer le texte
   textContent = textContent.replace(/\s\s+/g, ' ').trim();
   console.log("📄 Texte nettoyé:", textContent.substring(0, 200) + "...");
+
+this.extractTitle(textContent);
   
   let questionsArray = [];
   
@@ -764,75 +831,131 @@ extractQuestions(textContent) {
   }
 
   /**
-   * Exporter les réponses en PDF
-   */
-  exportResponses() {
-    const studentInfo = document.getElementById('studentName').value;
-    if (!studentInfo) {
-      this.showNotification('⚠️ Veuillez renseigner votre identité avant d\'exporter', 'error');
-      return;
+ * Exporter les réponses en PDF avec le titre de l'évaluation
+ */
+exportResponses() {
+  const studentInfo = document.getElementById('studentName').value;
+  if (!studentInfo) {
+    this.showNotification('⚠️ Veuillez renseigner votre identité avant d\'exporter', 'error');
+    return;
+  }
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // 🆕 TITRE DE L'ÉVALUATION EN HAUT
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    
+    // Découper le titre si trop long
+    const titleLines = doc.splitTextToSize(this.evaluationTitle || 'Évaluation', 190);
+    let yPosition = 15;
+    
+    titleLines.forEach((line, index) => {
+      doc.text(line, 105, yPosition + (index * 8), { align: 'center' });
+    });
+    
+    yPosition += titleLines.length * 8 + 5;
+    
+    // Ligne de séparation
+    doc.setDrawColor(52, 152, 219);
+    doc.setLineWidth(0.5);
+    doc.line(10, yPosition, 200, yPosition);
+    yPosition += 5;
+    
+    // Informations élève
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Élève : ${studentInfo}`, 10, yPosition);
+    yPosition += 7;
+    doc.text(`Date : ${new Date().toLocaleDateString('fr-FR', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`, 10, yPosition);
+    yPosition += 10;
+    
+    // Questions et réponses
+    const lineHeight = 7;
+    const maxWidth = 190;
+    
+    this.questions.forEach((q, i) => {
+      // Vérifier si on a besoin d'une nouvelle page
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      // Question
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(11);
+      const questionLines = doc.splitTextToSize(`Question ${i + 1} : ${q}`, maxWidth);
+      doc.text(questionLines, 10, yPosition);
+      yPosition += questionLines.length * lineHeight;
+      
+      // Réponse
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      const response = this.responses[i] || 'Pas de réponse.';
+      const responseLines = doc.splitTextToSize(`Réponse : ${response}`, maxWidth);
+      
+      // Ajouter une zone colorée pour la réponse
+      doc.setFillColor(236, 240, 241);
+      doc.rect(8, yPosition - 3, 194, responseLines.length * lineHeight + 2, 'F');
+      
+      doc.text(responseLines, 10, yPosition);
+      yPosition += responseLines.length * lineHeight + 8;
+    });
+    
+    // Pied de page avec le nombre de réponses
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      const answeredCount = this.responses.filter(r => r && r.trim() !== '').length;
+      doc.text(
+        `Page ${i}/${totalPages} - ${answeredCount}/${this.questions.length} réponses`,
+        105, 
+        290, 
+        { align: 'center' }
+      );
     }
     
-    try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      
-      // En-tête
-      doc.setFontSize(16);
-      doc.text('Évaluation - Réponses', 105, 15, { align: 'center' });
-      doc.setFontSize(12);
-      doc.text(`Élève : ${studentInfo}`, 10, 25);
-      doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 10, 32);
-      
-      // Questions et réponses
-      let yPosition = 45;
-      const lineHeight = 7;
-      const maxWidth = 190;
-      
-      this.questions.forEach((q, i) => {
-        // Vérifier si on a besoin d'une nouvelle page
-        if (yPosition > 270) {
-          doc.addPage();
-          yPosition = 20;
+    // Nom du fichier avec le titre (nettoyé)
+    const cleanTitle = this.evaluationTitle
+      .replace(/[^a-z0-9àâäéèêëïîôùûüÿæœç\s]/gi, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 30);
+    
+    const cleanStudent = studentInfo.replace(/[^a-z0-9]/gi, '_');
+    const filename = `${cleanTitle}_${cleanStudent}_${Date.now()}.pdf`;
+    
+    doc.save(filename);
+    
+    this.showNotification('✅ Réponses exportées avec succès', 'success');
+    
+    // Marquer comme sauvegardé
+    this.hasUnsavedWork = false;
+    
+    // Proposer de vider la session après l'export
+    setTimeout(() => {
+      if (confirm('Export réussi ! Voulez-vous terminer cette évaluation et commencer une nouvelle session ?')) {
+        if (this.stateManager) {
+          this.stateManager.clearState();
         }
-        
-        // Question
-        doc.setFont(undefined, 'bold');
-        const questionLines = doc.splitTextToSize(`Q${i + 1}: ${q}`, maxWidth);
-        doc.text(questionLines, 10, yPosition);
-        yPosition += questionLines.length * lineHeight;
-        
-        // Réponse
-        doc.setFont(undefined, 'normal');
-        const response = this.responses[i] || 'Pas de réponse.';
-        const responseLines = doc.splitTextToSize(`Réponse : ${response}`, maxWidth);
-        doc.text(responseLines, 10, yPosition);
-        yPosition += responseLines.length * lineHeight + 5;
-      });
-      
-      const filename = `evaluation_${studentInfo.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.pdf`;
-      doc.save(filename);
-      
-      this.showNotification('✅ Réponses exportées avec succès', 'success');
-      
-      // Marquer comme sauvegardé
-      this.hasUnsavedWork = false;
-      
-      // Proposer de vider la session après l'export
-      setTimeout(() => {
-        if (confirm('Export réussi ! Voulez-vous terminer cette évaluation et commencer une nouvelle session ?')) {
-          if (this.stateManager) {
-            this.stateManager.clearState();
-          }
-          location.reload();
-        }
-      }, 1000);
-      
-    } catch (error) {
-      console.error('Erreur lors de l\'export:', error);
-      this.showNotification('❌ Erreur lors de l\'export du PDF', 'error');
-    }
+        location.reload();
+      }
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Erreur lors de l\'export:', error);
+    this.showNotification('❌ Erreur lors de l\'export du PDF', 'error');
   }
+}
 
   /**
    * Afficher une notification
