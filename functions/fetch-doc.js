@@ -28,19 +28,19 @@ const rateLimitStore = new Map();
 
 /**
  * Vérifie si l'origine est autorisée
+ * VERSION PERMISSIVE - Accepte toutes les origines
  */
 function isOriginAllowed(origin) {
-  if (!origin) return false;
+  // TRÈS PERMISSIF : Accepter toutes les origines
+  // Cela permet à l'application de fonctionner depuis n'importe quel domaine
+  return true;
   
-  // En production, vérifier contre la liste blanche
-  if (process.env.NODE_ENV === 'production') {
-    return CONFIG.ALLOWED_ORIGINS.some(allowed => 
-      origin === allowed || origin.endsWith('.netlify.app')
-    );
-  }
-  
-  // En développement, autoriser localhost
-  return CONFIG.ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+  // Si vous voulez restreindre les origines plus tard, vous pouvez utiliser :
+  // return origin && (
+  //   origin.includes('localhost') || 
+  //   origin.endsWith('.netlify.app') ||
+  //   origin.includes('votre-domaine.com')
+  // );
 }
 
 /**
@@ -194,10 +194,10 @@ exports.handler = async function(event, context) {
   // Récupérer l'origine de la requête
   const origin = event.headers.origin || event.headers.Origin;
   
-  // Vérifier si l'origine est autorisée
-  const allowedOrigin = isOriginAllowed(origin) ? origin : 'null';
+  // Vérifier si l'origine est autorisée (VERSION PERMISSIVE)
+  const allowedOrigin = isOriginAllowed(origin) ? (origin || '*') : 'null';
   
-  // Headers CORS sécurisés
+  // Headers CORS permissifs
   const headers = {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -225,15 +225,6 @@ exports.handler = async function(event, context) {
       statusCode: 405,
       headers,
       body: JSON.stringify({ error: 'Méthode non autorisée. Utilisez POST.' })
-    };
-  }
-
-  // Vérifier que l'origine est autorisée
-  if (allowedOrigin === 'null') {
-    return {
-      statusCode: 403,
-      headers,
-      body: JSON.stringify({ error: 'Origine non autorisée' })
     };
   }
 
