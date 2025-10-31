@@ -9,6 +9,8 @@ class EvalVoiceApp {
     this.questions = [];
     this.currentQuestion = 0;
     this.responses = [];
+
+    this.evaluationTitle = 'Évaluation';  
     
     // Services vocaux
     this.recognition = null;
@@ -861,9 +863,10 @@ exportResponses() {
       .replace(/[^a-z0-9àâäéèêëïîôùûüÿæœç\s]/gi, '')
       .replace(/\s+/g, '_')
       .substring(0, 30);
-    
+
     const cleanStudent = studentInfo.replace(/[^a-z0-9]/gi, '_');
-    const filename = `${cleanTitle}_${cleanStudent}_${Date.now()}.pdf`;
+    const timestamp = new Date().getTime();
+    const filename = `Evaluation_${cleanStudent}_${timestamp}.pdf`;
     
     doc.save(filename);
     
