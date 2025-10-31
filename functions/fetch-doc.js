@@ -20,8 +20,8 @@ const CONFIG = {
   // Mode de sécurité CORS
   // 'permissive' : accepte toutes les origines (développement/test)
   // 'strict' : utilise la whitelist (production recommandée)
-  // Configurez via variable d'environnement : CORS_MODE=strict
-  CORS_MODE: process.env.CORS_MODE || 'permissive',
+  // Configurez via variable d'environnement : CORS_MODE=strict ou CORS_MODE=permissive
+  CORS_MODE: process.env.CORS_MODE || 'strict',
   
   // Domaines autorisés pour CORS en mode strict
   // Configurez via variable d'environnement ALLOWED_ORIGINS
