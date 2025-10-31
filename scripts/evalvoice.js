@@ -1,3 +1,8 @@
+/**
+ * EvalVoice - Application d'aide à l'évaluation
+ * Version 2.0 - Refactorée avec classe et améliorations
+ */
+
 class EvalVoiceApp {
   constructor() {
     // État de l'application
