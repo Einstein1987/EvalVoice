@@ -622,14 +622,19 @@ extractQuestions(textContent) {
       priority: 2
     },
     {
+      name: 'Numéro avec parenthèse (PDFs sans sauts de ligne)',
+      regex: /(?:^|\n|\.\s+|[?!]\s+|;\s+)(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
+      priority: 3 
+    }, 
+    {
       name: 'Numéro en début de ligne',
       regex: /(?:^|\n)\s*(\d+)\s*[\)\.\-:]\s+(?=[A-ZÀ-Ú])/gm,
-      priority: 3
+      priority: 4
     },
     {
       name: 'Numéro suivi de point',
       regex: /\b(\d+)\.\s+(?=[A-ZÀ-Ú][a-zà-ú])/g,
-      priority: 4
+      priority: 5
     }
   ];
 
