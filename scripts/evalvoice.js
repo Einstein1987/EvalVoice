@@ -623,7 +623,7 @@ extractQuestions(textContent) {
     },
     {
       name: 'Numéro avec parenthèse (PDFs sans sauts de ligne)',
-      regex: /(?:^|\n|\.\s+|[?!]\s+|;\s+)(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
+      regex: /(?:^|\n|\.\s+|[?!]\s+|;\s+)\b(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
       priority: 3 
     }, 
     {
