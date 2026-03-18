@@ -624,8 +624,8 @@ extractQuestions(textContent) {
     {
       name: 'Numéro avec parenthèse (PDFs sans sauts de ligne)',
       regex: /(?:^|\n|\.\s+|[?!]\s+|;\s+)\b(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
-      priority: 3 
-    }, 
+      priority: 3
+    },
     {
       name: 'Numéro en début de ligne',
       regex: /(?:^|\n)\s*(\d+)\s*[\)\.\-:]\s+(?=[A-ZÀ-Ú])/gm,
