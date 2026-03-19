@@ -598,10 +598,7 @@ class EvalVoiceApp {
     document.getElementById('speedDisplay').textContent = this.speechRate.toFixed(1) + 'x';
     this.showNotification(`Vitesse: ${this.speechRate.toFixed(1)}x`, 'info');
   }
-/**
- * Extraire les questions du texte
- * Cette version détecte mieux les différents formats de questions
- */
+/*** Extraire les questions du texte */
 extractQuestions(textContent) {
   // Nettoyer le texte
   textContent = textContent.replace(/\s\s+/g, ' ').trim();
@@ -609,7 +606,7 @@ extractQuestions(textContent) {
   
   let questionsArray = [];
   
-  // 🎯 PATTERNS AMÉLIORÉS - Dans l'ordre de priorité
+  // 🎯 PATTERNS AMÉLIORÉS
   const patterns = [
     {
       name: 'Question numérotée classique',
@@ -622,41 +619,148 @@ extractQuestions(textContent) {
       priority: 2
     },
     {
-      name: 'Numéro avec parenthèse (PDFs sans sauts de ligne)',
-      regex: /(?:^|\n|\.\s+|[?!]\s+|;\s+)\b(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
-      priority: 3
+      name: 'Numéro + parenthèse (version robuste)',
+      // 🆕 PATTERN AMÉLIORÉ avec word boundary
+      // \b avant (\d+) assure qu'on ne capture pas "31" dans "m31)"
+      // Mais ça ne marche pas car \b ne fonctionne pas entre chiffres
+      // 
+      // SOLUTION : On utilise le pattern simple et on filtre après
+      regex: /(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
+      priority: 3,
+      needsFiltering: true  // 🆕 Flag pour indiquer qu'il faut filtrer
     },
     {
       name: 'Numéro en début de ligne',
       regex: /(?:^|\n)\s*(\d+)\s*[\)\.\-:]\s+(?=[A-ZÀ-Ú])/gm,
       priority: 4
-    },
-    {
-      name: 'Numéro suivi de point',
-      regex: /\b(\d+)\.\s+(?=[A-ZÀ-Ú][a-zà-ú])/g,
-      priority: 5
     }
   ];
-
+ 
   // Essayer chaque pattern dans l'ordre de priorité
   for (const patternObj of patterns) {
     const matches = [...textContent.matchAll(patternObj.regex)];
     
-    if (matches.length > 1) { // Au moins 2 questions trouvées
+    if (matches.length > 0) {
       console.log(`✅ Pattern "${patternObj.name}" trouvé: ${matches.length} correspondances`);
       
-      matches.forEach((match, idx) => {
+      // Extraire les numéros détectés
+      const detectedNumbers = matches.map(m => parseInt(m[1]));
+      console.log(`📊 Numéros bruts détectés: ${detectedNumbers.join(', ')}`);
+      
+      // 🆕 FILTRAGE INTELLIGENT pour le pattern "numéro + parenthèse"
+      let filteredMatches = matches;
+      
+      if (patternObj.needsFiltering) {
+        console.log(`🔍 Filtrage intelligent activé pour ce pattern`);
+        
+        // Stratégie : Ne garder que les matches dont le numéro fait partie
+        // d'une séquence cohérente 1, 2, 3, 4...
+        
+        // 1. Identifier la séquence la plus probable
+        const sortedNumbers = [...detectedNumbers].sort((a, b) => a - b);
+        console.log(`🔢 Numéros triés: ${sortedNumbers.join(', ')}`);
+        
+        // 2. Chercher la plus longue séquence commençant à 1
+        let bestSequence = [];
+        for (let start = 1; start <= Math.min(...sortedNumbers); start++) {
+          let sequence = [start];
+          let current = start;
+          
+          while (sortedNumbers.includes(current + 1)) {
+            current++;
+            sequence.push(current);
+          }
+          
+          if (sequence.length > bestSequence.length) {
+            bestSequence = sequence;
+          }
+        }
+        
+        // Si aucune séquence commençant à 1, prendre la plus longue séquence
+        if (bestSequence.length === 0 || !bestSequence.includes(1)) {
+          // Chercher n'importe quelle séquence continue
+          for (let start of sortedNumbers) {
+            let sequence = [start];
+            let current = start;
+            
+            while (sortedNumbers.includes(current + 1)) {
+              current++;
+              sequence.push(current);
+            }
+            
+            if (sequence.length > bestSequence.length) {
+              bestSequence = sequence;
+            }
+          }
+          
+          // Si la meilleure séquence ne commence pas à 1, chercher 1 manuellement
+          if (!bestSequence.includes(1)) {
+            console.warn(`⚠️ Séquence ne commence pas à 1: ${bestSequence.join(', ')}`);
+            console.log(`🔎 Recherche manuelle du numéro 1...`);
+            
+            // Chercher s'il y a un "1)" dans le texte
+            const simplePattern = /\b1\s*\)\s+[A-ZÀ-Ú]/;
+            if (simplePattern.test(textContent)) {
+              console.log(`✅ Trouvé un "1)" dans le texte, ajout à la séquence`);
+              bestSequence = [1, ...bestSequence];
+            }
+          }
+        }
+        
+        console.log(`🎯 Séquence retenue: ${bestSequence.join(', ')}`);
+        
+        // 3. Filtrer les matches pour ne garder que ceux de la séquence
+        filteredMatches = matches.filter(m => {
+          const num = parseInt(m[1]);
+          return bestSequence.includes(num);
+        });
+        
+        console.log(`📉 Après filtrage: ${filteredMatches.length} matches (suppression de ${matches.length - filteredMatches.length} faux positifs)`);
+      }
+      
+      // Dédupliquer (garder la première occurrence de chaque numéro)
+      const seen = new Set();
+      const uniqueMatches = filteredMatches.filter(m => {
+        const num = parseInt(m[1]);
+        if (seen.has(num)) {
+          console.log(`⚠️ Doublon détecté: question ${num}, suppression de la 2e occurrence`);
+          return false;
+        }
+        seen.add(num);
+        return true;
+      });
+      
+      console.log(`🔍 Après déduplication: ${uniqueMatches.length} questions uniques`);
+      
+      // Trier par ordre d'apparition dans le texte
+      uniqueMatches.sort((a, b) => a.index - b.index);
+      
+      // Extraire le texte de chaque question
+      uniqueMatches.forEach((match, idx) => {
         const startIndex = match.index;
-        const endIndex = idx < matches.length - 1 ? matches[idx + 1].index : textContent.length;
+        const endIndex = idx < uniqueMatches.length - 1 ? uniqueMatches[idx + 1].index : textContent.length;
         
         // Extraire le texte de la question
         let questionText = textContent.substring(startIndex, endIndex).trim();
+        
+        // 🆕 NETTOYAGE : Retirer tout ce qui précède le numéro de la question
+        // Exemples :
+        //   "? 2) Quelle est..." → "2) Quelle est..."
+        //   "dimensions. 3) La masse..." → "3) La masse..."
+        //   "m3 1) Quelle..." → "1) Quelle..."
+        
+        // Pattern : tout sauf chiffre au début, puis chiffre + )
+        const cleaned = questionText.match(/(\d+\s*\).*)/);
+        if (cleaned) {
+          questionText = cleaned[1];
+          console.log(`🧹 Texte nettoyé pour Q${parseInt(match[1])}: "${questionText.substring(0, 30)}..."`);
+        }
         
         // Nettoyer les espaces multiples et sauts de ligne excessifs
         questionText = questionText.replace(/\n\s*\n/g, '\n').replace(/\s+/g, ' ');
         
         questionsArray.push({
-          number: idx + 1,
+          number: parseInt(match[1]),
           text: questionText
         });
       });
@@ -664,6 +768,11 @@ extractQuestions(textContent) {
       // Si on a trouvé des questions, on arrête
       if (questionsArray.length > 1) {
         console.log(`🎯 ${questionsArray.length} questions extraites avec le pattern "${patternObj.name}"`);
+        
+        // Afficher la séquence finale
+        const finalNumbers = questionsArray.map(q => q.number);
+        console.log(`🔢 Séquence finale: ${finalNumbers.join(', ')}`);
+        
         break;
       } else {
         // Réinitialiser si moins de 2 questions
@@ -671,12 +780,11 @@ extractQuestions(textContent) {
       }
     }
   }
-
+ 
   // 🔍 Si aucun pattern n'a fonctionné, essayer une approche alternative
   if (questionsArray.length === 0) {
     console.warn('⚠️ Aucun pattern standard trouvé, essai de découpage intelligent...');
     
-    // Essayer de découper sur les doubles sauts de ligne
     const paragraphs = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 20);
     
     if (paragraphs.length > 1) {
@@ -686,7 +794,6 @@ extractQuestions(textContent) {
         text: p.trim()
       }));
     } else {
-      // Essayer de découper sur les sauts de ligne simples avec numéros
       const lines = textContent.split('\n').filter(l => l.trim().length > 10);
       
       if (lines.length > 1) {
@@ -696,7 +803,6 @@ extractQuestions(textContent) {
           text: l.trim()
         }));
       } else {
-        // Dernier recours : tout mettre dans une seule question
         console.warn('⚠️ Impossible de découper, création d\'une question unique');
         questionsArray = [{
           number: 1,
@@ -705,17 +811,17 @@ extractQuestions(textContent) {
       }
     }
   }
-
+ 
   // Filtrer les questions vides et trop courtes
   questionsArray = questionsArray.filter(q => q.text.length > 10);
-
+ 
   // Mettre à jour l'état
   this.questions = questionsArray.map(q => q.text);
   this.responses = new Array(this.questions.length).fill('');
   
   console.log(`✅ ${this.questions.length} question(s) finale(s) extraite(s)`);
   console.log("📝 Questions:", this.questions.map((q, i) => `Q${i+1}: ${q.substring(0, 50)}...`));
-
+ 
   // Sauvegarder dans le state manager
   if (this.stateManager) {
     this.stateManager.update({
@@ -723,10 +829,9 @@ extractQuestions(textContent) {
       responses: this.responses
     });
   }
-
+ 
   return this.questions.length > 0;
 }
-
   /**
    * Démarrer l'évaluation
    */
