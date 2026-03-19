@@ -609,31 +609,35 @@ extractQuestions(textContent) {
   // 🎯 PATTERNS AMÉLIORÉS
   const patterns = [
     {
-      name: 'Question numérotée classique',
-      regex: /Question\s+(\d+)\s*[:\-\)\.]/gi,
-      priority: 1
-    },
-    {
-      name: 'Q + numéro',
-      regex: /\bQ(\d+)\s*[:\-\)\.]/gi,
-      priority: 2
-    },
-    {
-      name: 'Numéro + parenthèse (version robuste)',
-      // 🆕 PATTERN AMÉLIORÉ avec word boundary
-      // \b avant (\d+) assure qu'on ne capture pas "31" dans "m31)"
-      // Mais ça ne marche pas car \b ne fonctionne pas entre chiffres
-      // 
-      // SOLUTION : On utilise le pattern simple et on filtre après
-      regex: /(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
-      priority: 3,
-      needsFiltering: true  // 🆕 Flag pour indiquer qu'il faut filtrer
-    },
-    {
-      name: 'Numéro en début de ligne',
-      regex: /(?:^|\n)\s*(\d+)\s*[\)\.\-:]\s+(?=[A-ZÀ-Ú])/gm,
-      priority: 4
-    }
+    name: 'Question numérotée classique',
+    regex: /Question\s+(\d+)\s*[:\-\)\.]/gi,
+    priority: 1,
+    needsFiltering: false
+  },
+  {
+    name: 'Q + numéro',
+    regex: /\bQ(\d+)\s*[:\-\)\.]/gi,
+    priority: 2,
+    needsFiltering: false
+  },
+  {
+    name: 'Numéro + parenthèse',
+    regex: /(\d+)\s*\)\s+(?=[A-ZÀ-Ú])/gm,
+    priority: 3,
+    needsFiltering: true
+  },
+  {
+    name: 'Numéro + point',
+    regex: /(\d+)\.\s+(?=[A-ZÀ-Ú])/gm,
+    priority: 4,
+    needsFiltering: true  // Même filtrage intelligent que pour les parenthèses
+  },
+  {
+    name: 'Numéro en début de ligne',
+    regex: /(?:^|\n)\s*(\d+)\s*[\)\.\-:]\s+(?=[A-ZÀ-Ú])/gm,
+    priority: 5,
+    needsFiltering: false
+  }
   ];
  
   // Essayer chaque pattern dans l'ordre de priorité
@@ -750,7 +754,7 @@ extractQuestions(textContent) {
         //   "m3 1) Quelle..." → "1) Quelle..."
         
         // Pattern : tout sauf chiffre au début, puis chiffre + )
-        const cleaned = questionText.match(/(\d+\s*\).*)/);
+        const cleaned = questionText.match(/(\d+\s*[\)\.].*)/)
         if (cleaned) {
           questionText = cleaned[1];
           console.log(`🧹 Texte nettoyé pour Q${parseInt(match[1])}: "${questionText.substring(0, 30)}..."`);
