@@ -217,6 +217,19 @@
       console.log('💡 Astuce: Appuyez sur Échap pour arrêter la lecture ou l\'enregistrement');
       console.log('💡 Astuce: Utilisez Alt+Flèches pour naviguer entre les questions');
     });
+    window.addEventListener('load', () => {
+  console.log('✅ Page chargée');
+  
+  // NOUVEAU : Détection du paramètre URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const docUrl = urlParams.get('doc');
+  
+  if (docUrl) {
+    // Si un lien est fourni, on remplit le champ et on lance le chargement
+    document.getElementById('urlInput').value = docUrl;
+    loadDocument(); 
+  }
+});
   </script>
   <footer class="app-footer-minimal">
   <p>
