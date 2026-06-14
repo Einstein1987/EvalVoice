@@ -9,7 +9,6 @@
   "dependencies": {
     "node-fetch": "^2.6.1"
   },
-  "devDependencies": {},
   "scripts": {
     "build": "echo 'No build step required'"
   },
