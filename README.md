@@ -6,15 +6,17 @@
 - **Reconnaissance Vocale** : Les élèves peuvent répondre aux questions verbalement, et leurs réponses sont transcrites en texte.
 - **Navigation entre les Questions** : Navigation facile entre les questions à l'aide des boutons "Question précédente" et "Question suivante".
 - **Export des Réponses** : Exportez toutes les réponses dans un document PDF pour la révision et la notation.
+
 ### Comment Utiliser
 ##### Charger un Document Google Docs
-1. Ouvrez l'application EvalVoice.
-2. Entrez l'URL d'un document Google Docs accessible au public.
-3. Cliquez sur le bouton "Charger le document" pour charger et démarrer l'évaluation.
+- **Option 1 (Manuelle)** : Ouvrez l'application EvalVoice, entrez l'URL d'un document Google Docs accessible au public dans le champ prévu à cet effet, puis cliquez sur "Charger le document en ligne".
+- **Option 2 (Automatique)** : Ouvrez l'application via un lien direct contenant l'URL du document en paramètre (ex: `https://evalvoice.netlify.app/?doc=URL_DU_DOC`). Le document se chargera automatiquement.
+
 ##### Charger un Document PDF
-1. Ouvrez la page de Téléchargement de PDF en cliquant sur le bouton "PDF" en haut à droite de la page principale.
-2. Téléchargez un fichier PDF contenant l'évaluation.
-3. Le PDF sera affiché, et l'évaluation commencera.
+1. Sur la page principale, allez dans la section **Option B** et cliquez sur "Choisir un fichier PDF".
+2. Sélectionnez un fichier PDF contenant l'évaluation depuis votre appareil.
+3. Le PDF sera analysé, affiché, et l'évaluation commencera automatiquement.
+
 ##### Répondre aux Questions
 - **Enregistrement des Informations de l'Élève** : Cliquez sur le bouton info élève et dites votre prénom, nom et classe.
 - **Écouter et Répondre** : L'application lira chaque question à haute voix. Après la lecture de la question, vous pouvez enregistrer votre réponse.
@@ -42,40 +44,47 @@ Pour toute question ou support, veuillez me contacter.
 
 # EvalVoice
 **EvalVoice** is a web application designed to assist teachers and students during evaluations, specifically tailored for use in educational settings. It facilitates oral reading of questions, voice input for responses, and text transcription, enhancing accessibility for students with reading and writing difficulties.
+
 ### Features
 - **Document Loading** : Users can load evaluation documents either by providing a Google Docs URL or by uploading a PDF file.
 - **Voice Synthesis** : The application reads the evaluation questions aloud using text-to-speech technology.
 - **Voice Recognition** : Students can respond to questions verbally, and their answers are transcribed into text.
 - **Question Navigation** : Easily navigate between questions using "Previous Question" and "Next Question" buttons.
 - **Response Export** : Export all responses into a PDF document for review and grading.
+
 ### How to Use
 ##### Loading a Google Docs Document
-1. Open the EvalVoice application.
-2. Enter the URL of a publicly accessible Google Docs document.
-3. Click on the "Charger le document" button to load and start the evaluation.
+- **Option 1 (Manual)**: Open the EvalVoice application, enter the URL of a publicly accessible Google Docs document, and click the "Charger le document en ligne" button.
+- **Option 2 (Automatic)**: Open the application using a direct link containing the document URL as a parameter (e.g., `https://evalvoice.netlify.app/?doc=DOC_URL`). The document will load automatically.
+
 ##### Loading a PDF Document
-1. Open the PDF Upload page by clicking the "PDF" button in the top right corner of the main page.
-2. Upload a PDF file containing the evaluation.
-3. The PDF will be displayed, and the evaluation will begin.
+1. On the main page, go to **Option B** and click on "Choisir un fichier PDF".
+2. Select a PDF file containing the evaluation from your device.
+3. The PDF will be analyzed, displayed, and the evaluation will begin automatically.
+
 ##### Responding to Questions
 - **Recording Student Information** : Click the student info button and speak your name, surname, and class.
 - **Listening and Responding** : The application will read each question aloud. After the question is read, you can record your response.
 - **Navigating Questions** : Use the "Previous Question" and "Next Question" buttons to move through the questions.
 - **Exporting Responses** : Once all questions are answered, click "Exporter les réponses" to save the responses as a PDF.
+
 ### Technologies Used
 - **HTML/CSS** : For structuring and styling the web application.
 - **JavaScript** : For handling interactions, voice synthesis, and recognition.
-- **PDF.js** : For rendering PDF documents.
+- **PDF.js** : For rendering and extracting text from PDF documents.
+
 ### Setup Instructions
 1. Clone the Repository : `git clone https://github.com/Einstein1987/EvalVoice.git`
 2. Navigate to the Project Directory : `cd EvalVoice`
 3. Install **Netlify CLI** if you don't have it : `npm install -g netlify-cli`
-4. Run `netlify dev` to start the project locally, or deploy to Netlify so the `functions/fetch-doc.js` function is available. The `index.html` file relies on this function to fetch documents. Access the app through the URL provided by Netlify.
+4. Run `netlify dev` to start the project locally, or deploy to Netlify so the `functions/fetch-doc.js` function is available. (Note: Node.js 22 or higher environment is recommended). The `index.html` file relies on this function to fetch documents. Access the app through the URL provided by Netlify.
+
 ## Licence
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
 ## Author
 - **Jérémy VIOLETTE** - Professor of Physics-Chemistry, La NACELLE College (REP) of Corbeil-Essonnes (91100).
 
 For any inquiries or support, please contact me.
 
-*EvalVoice is designed to assist students with reading and writing difficulties by providing an adapted evaluation using speech synthesis and dictated response transcription.*
+*EvalVoice is designed to assist students with reading and writing difficulties by providing an adapted evaluation using speech synthesis and dictated response transcription.*ist students with reading and writing difficulties by providing an adapted evaluation using speech synthesis and dictated response transcription.*
