@@ -38,10 +38,27 @@
             
             <!-- Instructions et chargement -->
             <div id="setup-section" class="centre">
-              <p>Entrez l'URL d'un document Google Docs...</p>
-              <input type="text" id="urlInput" placeholder="URL Google Docs" aria-label="URL du document">
-              <button id="loadDocumentButton" onclick="loadDocument()">📄 Charger le document</button>
-            </div>
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                  <p style="margin-top: 0;"><strong>Option A :</strong> Lien Google Docs</p>
+                  <input type="text" id="urlInput" placeholder="Collez l'URL ici..." aria-label="URL du document">
+                  <button id="loadDocumentButton" onclick="loadDocument()">
+                      📄 Charger le document en ligne
+                  </button>
+              </div>
+          
+              <div style="margin: 20px 0; border-bottom: 2px dashed #bdc3c7; position: relative;">
+                  <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; color: #7f8c8d; font-weight: bold;">OU</span>
+              </div>
+          
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                  <p style="margin-top: 0;"><strong>Option B :</strong> Fichier de la tablette/PC</p>
+                  <label class="file-label" for="fileInput">
+                      📁 Choisir un fichier PDF
+                  </label>
+                  <input type="file" id="fileInput" accept="application/pdf" style="display: none;" aria-label="Choisir un fichier PDF">
+                  <div id="fileNameDisplay" class="file-name"></div>
+              </div>
+          </div>
             
             <!-- Barre de progression -->
             <div class="progress-container" id="progressContainer" style="display: none;">
@@ -184,6 +201,10 @@
           const success = window.evalVoiceApp.extractQuestions(textContent);
           
           if (success) {
+            // Masquer le menu pour activer le mode focus
+            const setupSection = document.getElementById('setup-section');
+            if (setupSection) setupSection.style.display = 'none';
+            
             // Démarrer l'évaluation
             window.evalVoiceApp.startEvaluation();
             window.evalVoiceApp.showNotification(
@@ -225,6 +246,76 @@
     loadDocument(); 
   }
 });
+    // --- GESTION DU FICHIER PDF LOCAL ---
+document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Afficher le nom du fichier sélectionné
+  const nameDisplay = document.getElementById('fileNameDisplay');
+  if (nameDisplay) {
+    nameDisplay.textContent = file.name;
+    nameDisplay.style.display = 'block';
+  }
+  
+  if (window.evalVoiceApp) {
+    window.evalVoiceApp.showNotification('⏳ Lecture du PDF en cours...', 'info');
+  }
+
+  // Activer le mode focus en masquant les menus de démarrage
+  const setupSection = document.getElementById('setup-section');
+  if (setupSection) setupSection.style.display = 'none';
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const pdfData = e.target.result;
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    
+    loadingTask.promise.then(function(pdf) {
+      let textContent = '';
+      let loadPage = (pageNumber) => {
+        pdf.getPage(pageNumber).then(function(page) {
+          page.getTextContent().then(function(textContentObj) {
+            textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
+            if (pageNumber < pdf.numPages) {
+              loadPage(pageNumber + 1); // Charger la page suivante
+            } else {
+              textContent = textContent.replace(/\s\s+/g, ' ');
+              
+              // Extraire les questions
+              if (window.evalVoiceApp) {
+                const success = window.evalVoiceApp.extractQuestions(textContent);
+                
+                if (success) {
+                  // Lancer l'évaluation automatiquement
+                  window.evalVoiceApp.startEvaluation();
+                  window.evalVoiceApp.showNotification(
+                    `✅ ${window.evalVoiceApp.questions.length} question(s) trouvée(s)`, 
+                    'success'
+                  );
+                } else {
+                  window.evalVoiceApp.showNotification('⚠️ Aucune question trouvée', 'error');
+                  if (setupSection) setupSection.style.display = 'block'; // Réafficher le menu si erreur
+                }
+              }
+            }
+          });
+        });
+      };
+      loadPage(1); // Lancer la lecture de la page 1
+      
+      // Afficher le PDF visuellement dans l'iframe de droite
+      document.getElementById('pdfViewer').src = URL.createObjectURL(new Blob([pdfData], { type: 'application/pdf' }));
+    }).catch(err => {
+      console.error('Erreur PDF.js:', err);
+      if (window.evalVoiceApp) window.evalVoiceApp.showNotification('❌ Erreur de lecture du fichier PDF', 'error');
+      if (setupSection) setupSection.style.display = 'block';
+    });
+  };
+  reader.readAsArrayBuffer(file);
+}
   </script>
   <footer class="app-footer-minimal">
   <p>
