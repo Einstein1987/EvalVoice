@@ -840,6 +840,8 @@ extractQuestions(textContent) {
    * Démarrer l'évaluation
    */
   startEvaluation() {
+    const setupSection = document.getElementById('setup-section');
+    if (setupSection) setupSection.style.display = 'none';
     if (!this.synthesis) {
       this.showNotification('❌ Synthèse vocale non disponible', 'error');
       return;
