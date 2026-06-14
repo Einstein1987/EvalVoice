@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Une application web pour pouvoir effectuer des évaluations à l'oral",
   "main": "index.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
     "node-fetch": "^2.6.1"
   },
