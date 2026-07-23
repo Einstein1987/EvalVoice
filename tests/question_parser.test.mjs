@@ -97,15 +97,79 @@ test('arrête la dernière question avant un barème renseigné sur la même lig
   assert.doesNotMatch(result.questions[1], /Barème/u);
 });
 
-test('demande une validation quand plusieurs verbes de Bloom en gras sont ambigus', () => {
+test('traite plusieurs consignes de Bloom en gras comme des questions successives', () => {
   const result = detectQuestions([
     { text: 'Analyser les résultats de la première expérience.', isBoldStart: true },
     { text: 'Comparer les résultats avec ceux de la seconde expérience.', isBoldStart: true }
   ]);
 
+  assert.equal(result.requiresReview, false);
+  assert.equal(result.strategy, 'bold-bloom-sequence');
+  assert.deepEqual(result.questions, [
+    'Analyser les résultats de la première expérience.',
+    'Comparer les résultats avec ceux de la seconde expérience.'
+  ]);
+});
+
+test('extrait le sujet Superman sans popup, doublon ni compétence parasite', () => {
+  const result = detectQuestions([
+    {
+      text: 'Rédiger un texte structuré à l’aide de phrases simples.',
+      isBoldStart: true
+    },
+    { text: 'COM' },
+    {
+      text: 'Rendre un travail propre et soigné.',
+      isBoldStart: true
+    },
+    { text: 'RCO/' },
+    { text: 'Document 1 : Superman est né sur la planète Krypton.' },
+    {
+      text: 'Document 2 : Les fibres musculaires de Superman sont prévues pour fonctionner sur Krypton.'
+    },
+    {
+      text: 'Calculer la masse d’un objet que Superman peut soulever sur Krypton, s’il exerce la',
+      isBoldStart: true,
+      boldWords: ['Calculer']
+    },
+    {
+      text: 'même force que celle nécessaire pour soulever une voiture de 1 tonne sur Terre, en'
+    },
+    {
+      text: 'utilisant les informations des documents et tes connaissances.'
+    },
+    {
+      text: 'Conclure sur l’origine réelle des super-pouvoirs de Superman.',
+      isBoldStart: true,
+      boldWords: ['Conclure']
+    }
+  ]);
+
+  assert.equal(result.requiresReview, false);
+  assert.equal(result.strategy, 'bold-bloom-sequence');
+  assert.deepEqual(result.bloomVerbs, ['Calculer', 'Conclure']);
+  assert.deepEqual(result.questions, [
+    'Calculer la masse d’un objet que Superman peut soulever sur Krypton, s’il exerce la\n' +
+      'même force que celle nécessaire pour soulever une voiture de 1 tonne sur Terre, en\n' +
+      'utilisant les informations des documents et tes connaissances.',
+    'Conclure sur l’origine réelle des super-pouvoirs de Superman.'
+  ]);
+  assert.doesNotMatch(result.questions.join('\n'), /Rédiger|Rendre|COM|RCO/u);
+});
+
+test('borne aussi les suggestions ambiguës pour éviter les blocs imbriqués', () => {
+  const result = detectQuestions([
+    { text: 'Calculer la valeur de la vitesse moyenne.' },
+    { text: 'Conclure sur la validité de l’hypothèse.' }
+  ]);
+
   assert.equal(result.requiresReview, true);
   assert.equal(result.strategy, 'ambiguous-bloom');
-  assert.match(result.suggestion, /---/u);
+  assert.equal(
+    result.suggestion,
+    'Calculer la valeur de la vitesse moyenne.\n\n---\n\n' +
+      'Conclure sur la validité de l’hypothèse.'
+  );
 });
 
 test('tolère un PDF qui ne permet pas d’identifier le gras si la tâche est unique', () => {
