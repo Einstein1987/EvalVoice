@@ -157,19 +157,34 @@ test('extrait le sujet Superman sans popup, doublon ni compétence parasite', ()
   assert.doesNotMatch(result.questions.join('\n'), /Rédiger|Rendre|COM|RCO/u);
 });
 
-test('borne aussi les suggestions ambiguës pour éviter les blocs imbriqués', () => {
+test('utilise automatiquement plusieurs consignes successives même si le gras est perdu', () => {
   const result = detectQuestions([
     { text: 'Calculer la valeur de la vitesse moyenne.' },
     { text: 'Conclure sur la validité de l’hypothèse.' }
   ]);
 
+  assert.equal(result.requiresReview, false);
+  assert.equal(result.strategy, 'bloom-sequence');
+  assert.equal(result.confidence, 'medium');
+  assert.deepEqual(result.questions, [
+    'Calculer la valeur de la vitesse moyenne.',
+    'Conclure sur la validité de l’hypothèse.'
+  ]);
+});
+
+test('conserve la validation pour une amorce non initiale sans gras', () => {
+  const result = detectQuestions([
+    {
+      text: 'À partir du graphique, calculer la valeur de la vitesse moyenne.'
+    },
+    {
+      text: 'Dans cette fiche, observer signifie regarder attentivement.'
+    }
+  ]);
+
   assert.equal(result.requiresReview, true);
   assert.equal(result.strategy, 'ambiguous-bloom');
-  assert.equal(
-    result.suggestion,
-    'Calculer la valeur de la vitesse moyenne.\n\n---\n\n' +
-      'Conclure sur la validité de l’hypothèse.'
-  );
+  assert.equal(result.questions.length, 0);
 });
 
 test('tolère un PDF qui ne permet pas d’identifier le gras si la tâche est unique', () => {

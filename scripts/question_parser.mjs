@@ -375,14 +375,20 @@ function hasSectionBoundaryBetween(lines, startIndex, endIndex) {
     .some((line) => SECTION_BOUNDARY_PATTERN.test(line.text));
 }
 
-function extractBoldBloomSequence(candidates, lines) {
-  const boldCandidates = candidates.filter((candidate) => candidate.isBoldStart);
-  if (boldCandidates.length < 2) return null;
+function extractBloomSequence(candidates, lines) {
+  // Le signal de gras est parfois perdu lors de l'export PDF. Plusieurs
+  // consignes qui commencent directement par un verbe restent néanmoins une
+  // séquence fiable. En revanche, une amorce non initiale sans gras conserve
+  // le filet de validation afin d'éviter les faux positifs descriptifs.
+  const sequenceCandidates = candidates.filter(
+    (candidate) => candidate.isBoldStart || candidate.position === 'initial'
+  );
+  if (sequenceCandidates.length < 2) return null;
 
   // Une limite de section sépare deux groupes de consignes. On retient le
   // groupe cohérent le mieux noté, puis on borne chaque question à la suivante.
   const runs = [];
-  for (const candidate of boldCandidates) {
+  for (const candidate of sequenceCandidates) {
     const currentRun = runs.at(-1);
     const previous = currentRun?.at(-1);
     if (
@@ -414,14 +420,17 @@ function extractBoldBloomSequence(candidates, lines) {
 
   if (questions.length !== bestRun.length) return null;
 
+  const allBold = bestRun.every((candidate) => candidate.isBoldStart);
   return {
     questions,
-    strategy: 'bold-bloom-sequence',
-    confidence: 'high',
+    strategy: allBold ? 'bold-bloom-sequence' : 'bloom-sequence',
+    confidence: allBold ? 'high' : 'medium',
     requiresReview: false,
     bloomVerbs: bestRun.map((candidate) => candidate.verb),
     reason:
-      `Une séquence de ${questions.length} consignes commençant par des verbes de Bloom en gras a été reconnue.`
+      allBold
+        ? `Une séquence de ${questions.length} consignes commençant par des verbes de Bloom en gras a été reconnue.`
+        : `Une séquence cohérente de ${questions.length} consignes commençant par des verbes de Bloom a été reconnue.`
   };
 }
 
@@ -448,7 +457,7 @@ function extractBloom(lines) {
     .sort((a, b) => a.lineIndex - b.lineIndex);
   if (credible.length === 0) return null;
 
-  const sequence = extractBoldBloomSequence(credible, lines);
+  const sequence = extractBloomSequence(credible, lines);
   if (sequence) return sequence;
 
   const ranked = [...credible].sort((a, b) => b.score - a.score);
