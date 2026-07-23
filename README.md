@@ -1,90 +1,100 @@
 # EvalVoice
-**EvalVoice** est une application web conçue pour assister les enseignants et les élèves lors des évaluations, spécifiquement adaptée à un usage éducatif. Elle facilite la lecture orale des questions, l'entrée vocale des réponses et la transcription textuelle, améliorant ainsi l'accessibilité pour les élèves ayant des difficultés de lecture et d'écriture.
-### Fonctionnalités
-- **Chargement de Documents** : Les utilisateurs peuvent charger des documents d'évaluation soit en fournissant une URL Google Docs, soit en téléchargeant un fichier PDF.
-- **Synthèse Vocale** : L'application lit les questions d'évaluation à haute voix en utilisant la technologie de synthèse vocale.
-- **Reconnaissance Vocale** : Les élèves peuvent répondre aux questions verbalement, et leurs réponses sont transcrites en texte.
-- **Navigation entre les Questions** : Navigation facile entre les questions à l'aide des boutons "Question précédente" et "Question suivante".
-- **Export des Réponses** : Exportez toutes les réponses dans un document PDF pour la révision et la notation.
 
-### Comment Utiliser
-##### Charger un Document Google Docs
-- **Option 1 (Manuelle)** : Ouvrez l'application EvalVoice, entrez l'URL d'un document Google Docs accessible au public dans le champ prévu à cet effet, puis cliquez sur "Charger le document en ligne".
-- **Option 2 (Automatique)** : Ouvrez l'application via un lien direct contenant l'URL du document en paramètre (ex: `https://evalvoice.netlify.app/?doc=URL_DU_DOC`). Le document se chargera automatiquement.
+EvalVoice est une application web d’aide à la passation d’évaluations. Elle
+charge un sujet PDF ou Google Docs, en extrait les questions, les lit à voix
+haute, transcrit les réponses dictées et produit un PDF de réponses.
 
-##### Charger un Document PDF
-1. Sur la page principale, allez dans la section **Option B** et cliquez sur "Choisir un fichier PDF".
-2. Sélectionnez un fichier PDF contenant l'évaluation depuis votre appareil.
-3. Le PDF sera analysé, affiché, et l'évaluation commencera automatiquement.
+## Ce que reconnaît le parseur
 
-##### Répondre aux Questions
-- **Enregistrement des Informations de l'Élève** : Cliquez sur le bouton info élève et dites votre prénom, nom et classe.
-- **Écouter et Répondre** : L'application lira chaque question à haute voix. Après la lecture de la question, vous pouvez enregistrer votre réponse.
-- **Navigation entre les Questions** : Utilisez les boutons "Question précédente" et "Question suivante" pour naviguer entre les questions.
-- **Export des Réponses** : Une fois toutes les questions répondues, cliquez sur "Exporter les réponses" pour sauvegarder les réponses sous forme de PDF.
-### Technologies Utilisées
-- **HTML/CSS** : Pour la structuration et le style de l'application web.
-- **JavaScript** : Pour gérer les interactions, la synthèse vocale et la reconnaissance vocale.
-- **PDF.js** : Pour afficher les documents PDF.
-### Instructions d'Installation
-1. Cloner le Dépôt : `git clone https://github.com/Einstein1987/EvalVoice.git`
-2. Naviguer vers le Répertoire du Projet : `cd EvalVoice`
-3. Installer **Netlify CLI** (si nécessaire) : `npm install -g netlify-cli`
-4. Démarrer localement avec `netlify dev` ou déployer sur Netlify pour que la fonction `functions/fetch-doc.js` soit disponible. Le fichier `index.html` utilise cette fonction pour récupérer les documents. Ouvrez ensuite l'application via l'URL fournie par Netlify.
-## Licence
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
-## Auteur
-- **Jérémy VIOLETTE** - Professeur de Physique-Chimie, Collège La NACELLE (REP) de Corbeil-Essonnes (91100).
-  
-Pour toute question ou support, veuillez me contacter.
+Le parseur conserve les retours à la ligne et utilise plusieurs signaux, par
+ordre de fiabilité :
 
-*EvalVoice est conçu pour aider les élèves en difficulté de lecture et d'écriture en leur offrant une évaluation adaptée utilisant la synthèse vocale et la transcription de réponses dictées.*
+1. une séquence numérotée cohérente : `1)`, `2)`, `3)`… ;
+2. une question unique explicitement numérotée : `Question 1 :` ;
+3. une tâche complexe non numérotée commençant par un verbe de Bloom en gras.
 
---------------------------------------------------------------------------------------------
+Exemples de verbes reconnus : **Analyser**, **Évaluer**, **Justifier**,
+**Comparer**, **Concevoir**, **Proposer**, **Rédiger** et **Créer**. Les formes
+à l’impératif comme **Analysez** et **Justifiez** sont aussi prises en charge.
 
-# EvalVoice
-**EvalVoice** is a web application designed to assist teachers and students during evaluations, specifically tailored for use in educational settings. It facilitates oral reading of questions, voice input for responses, and text transcription, enhancing accessibility for students with reading and writing difficulties.
+Le gras du PDF sert de signal fort. Certains générateurs PDF ne publient pas
+clairement le poids de la police : dans ce cas, une seule consigne commençant
+par un verbe de Bloom peut encore être reconnue avec une confiance moyenne.
+Si plusieurs consignes sont possibles, EvalVoice affiche une boîte de
+vérification au lieu de choisir silencieusement.
 
-### Features
-- **Document Loading** : Users can load evaluation documents either by providing a Google Docs URL or by uploading a PDF file.
-- **Voice Synthesis** : The application reads the evaluation questions aloud using text-to-speech technology.
-- **Voice Recognition** : Students can respond to questions verbally, and their answers are transcribed into text.
-- **Question Navigation** : Easily navigate between questions using "Previous Question" and "Next Question" buttons.
-- **Response Export** : Export all responses into a PDF document for review and grading.
+## Utilisation
 
-### How to Use
-##### Loading a Google Docs Document
-- **Option 1 (Manual)**: Open the EvalVoice application, enter the URL of a publicly accessible Google Docs document, and click the "Charger le document en ligne" button.
-- **Option 2 (Automatic)**: Open the application using a direct link containing the document URL as a parameter (e.g., `https://evalvoice.netlify.app/?doc=DOC_URL`). The document will load automatically.
+- Charger un PDF local de 20 Mo maximum, ou coller un lien Google Docs.
+- Vérifier la question reconnue si EvalVoice le demande.
+- Utiliser « Lire la question », puis saisir ou dicter la réponse.
+- Pour une réponse longue, la dictée continue jusqu’au clic sur
+  « Arrêter la dictée ».
+- Exporter les questions et réponses en PDF.
 
-##### Loading a PDF Document
-1. On the main page, go to **Option B** and click on "Choisir un fichier PDF".
-2. Select a PDF file containing the evaluation from your device.
-3. The PDF will be analyzed, displayed, and the evaluation will begin automatically.
+La reconnaissance vocale fonctionne surtout dans les navigateurs Chromium.
+Quand elle n’est pas disponible, toutes les fonctions de saisie au clavier,
+navigation et export restent accessibles.
 
-##### Responding to Questions
-- **Recording Student Information** : Click the student info button and speak your name, surname, and class.
-- **Listening and Responding** : The application will read each question aloud. After the question is read, you can record your response.
-- **Navigating Questions** : Use the "Previous Question" and "Next Question" buttons to move through the questions.
-- **Exporting Responses** : Once all questions are answered, click "Exporter les réponses" to save the responses as a PDF.
+## Confidentialité
 
-### Technologies Used
-- **HTML/CSS** : For structuring and styling the web application.
-- **JavaScript** : For handling interactions, voice synthesis, and recognition.
-- **PDF.js** : For rendering and extracting text from PDF documents.
+Les réponses et l’identité de l’élève restent dans le navigateur. Une reprise
+de session est conservée dans `sessionStorage` pendant huit heures au maximum
+et uniquement dans l’onglet concerné.
 
-### Setup Instructions
-1. Clone the Repository : `git clone https://github.com/Einstein1987/EvalVoice.git`
-2. Navigate to the Project Directory : `cd EvalVoice`
-3. Install **Netlify CLI** if you don't have it : `npm install -g netlify-cli`
-4. Run `netlify dev` to start the project locally, or deploy to Netlify so the `functions/fetch-doc.js` function is available. (Note: Node.js 22 or higher environment is recommended). The `index.html` file relies on this function to fetch documents. Access the app through the URL provided by Netlify.
+La reconnaissance vocale est fournie par le navigateur. Selon le navigateur
+et sa configuration, l’audio peut être transmis au service de transcription de
+son éditeur. Avant un usage avec des élèves, l’établissement doit informer les
+utilisateurs et valider ce traitement avec la personne responsable de la
+protection des données.
 
-## Licence
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+Lors du chargement d’un Google Docs, la fonction Netlify télécharge seulement
+le PDF exporté. Elle ne reçoit ni l’identité de l’élève ni ses réponses.
 
-## Author
-- **Jérémy VIOLETTE** - Professor of Physics-Chemistry, La NACELLE College (REP) of Corbeil-Essonnes (91100).
+## Développement
 
-For any inquiries or support, please contact me.
+Pré-requis : Node.js 24 ou supérieur.
 
-*EvalVoice is designed to assist students with reading and writing difficulties by providing an adapted evaluation using speech synthesis and dictated response transcription.*ist students with reading and writing difficulties by providing an adapted evaluation using speech synthesis and dictated response transcription.*
+```bash
+npm ci
+npm run check
+npm run build
+```
+
+Le site prêt à publier est généré dans `dist/`. Les versions de PDF.js et
+jsPDF sont verrouillées dans `package-lock.json` et copiées localement lors du
+build : aucune bibliothèque JavaScript n’est chargée depuis un CDN.
+
+Commandes utiles :
+
+```bash
+npm test
+npm run audit:prod
+```
+
+## Déploiement Netlify
+
+`netlify.toml` configure le build, les en-têtes de sécurité et la fonction
+`/api/fetch-doc`. Les URL Netlify du déploiement sont autorisées
+automatiquement.
+
+Pour ajouter d’autres domaines exacts, définir :
+
+```text
+ALLOWED_ORIGINS=https://evalvoice.exemple.fr,https://autre-domaine.exemple
+```
+
+Les jokers et les correspondances partielles ne sont volontairement pas
+acceptés. Le document Google Docs doit être accessible avec son lien afin que
+Google puisse l’exporter en PDF.
+
+## Limites connues
+
+- Un PDF scanné sans couche de texte nécessite un OCR, non inclus actuellement.
+- Le poids « gras » n’est pas standardisé dans tous les PDF ; la validation
+  manuelle couvre les cas ambigus.
+- La synthèse et la reconnaissance vocales varient selon le système et le
+  navigateur : tester les appareils utilisés en classe avant une session.
+
+Le compte rendu complet se trouve dans
+[`docs/AUDIT_TECHNIQUE_2026-07-23.md`](docs/AUDIT_TECHNIQUE_2026-07-23.md).
