@@ -46,3 +46,9 @@ test('le build embarque les deux polices Unicode et leur licence', () => {
   assert.match(build, /DejaVu-LICENSE\.txt/u);
   assert.match(build, /scripts\/pdf_export\.mjs/u);
 });
+
+test('les PDF locaux et Google Docs partagent la limite de 20 Mo', () => {
+  assert.match(app, /MAX_LOCAL_PDF_SIZE\s*=\s*20\s*\*\s*1024\s*\*\s*1024/u);
+  assert.match(app, /MAX_REMOTE_PDF_SIZE\s*=\s*20\s*\*\s*1024\s*\*\s*1024/u);
+  assert.match(html, /export PDF ne doit pas\s+dépasser 20 Mo/u);
+});

@@ -9,7 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   new URL('../vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
 
 const MAX_LOCAL_PDF_SIZE = 20 * 1024 * 1024;
-const MAX_REMOTE_PDF_SIZE = 4 * 1024 * 1024;
+const MAX_REMOTE_PDF_SIZE = 20 * 1024 * 1024;
 const RECOGNITION_RESTART_LIMIT = 20;
 
 function joinTranscript(...parts) {
@@ -247,7 +247,7 @@ class EvalVoiceApp {
       if (!response.ok) throw new Error(await this.readErrorResponse(response));
       const blob = await response.blob();
       if (blob.size > MAX_REMOTE_PDF_SIZE) {
-        throw new Error('Le PDF distant dépasse la taille maximale de 4 Mo.');
+        throw new Error('Le PDF distant dépasse la taille maximale de 20 Mo.');
       }
       if (loadId !== this.loadSequence) return;
 
