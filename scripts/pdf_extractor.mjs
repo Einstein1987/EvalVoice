@@ -113,9 +113,12 @@ function pageItemsToLines(textContent, pageNumber, fontObjects = {}) {
     .map((row) => {
       const orderedItems = [...row.items].sort((a, b) => a.x - b.x);
       const firstTextItem = orderedItems.find((item) => item.text);
+      const boldText = joinItems(orderedItems.filter((item) => item.isBold));
       return {
         text: joinItems(orderedItems),
         isBoldStart: Boolean(firstTextItem?.isBold),
+        boldWords:
+          boldText.match(/[\p{L}À-ÿŒœ][\p{L}À-ÿŒœ'’-]*/gu) ?? [],
         pageNumber
       };
     })

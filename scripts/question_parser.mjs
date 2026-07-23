@@ -28,7 +28,7 @@ const NUMBERED_PATTERN =
   /^\s*(?:(question|q)\s*)?(\d{1,3})\s*(?:[)\].:–—-])\s*(.*)$/iu;
 
 const SECTION_BOUNDARY_PATTERN =
-  /^\s*(?:bar[eè]me|corrig[eé]|correction|crit[eè]res?(?:\s+d['’][eé]valuation)?|grille\s+d['’][eé]valuation|annexes?|documents?\s+(?:ressources?|annexes?)|comp[eé]tences?\s+[eé]valu[eé]es?)\s*:?\s*$/iu;
+  /^\s*(?:bar[eè]me|corrig[eé]|correction|crit[eè]res?(?:\s+d['’][eé]valuation)?|grille\s+d['’][eé]valuation|annexes?|documents?\s+(?:ressources?|annexes?)|comp[eé]tences?\s+[eé]valu[eé]es?)\s*(?::\s*.*)?$/iu;
 
 const NEGATIVE_CONTEXT_PATTERN =
   /\b(?:bar[eè]me|notation|points?|crit[eè]res?|corrig[eé]|correction)\b/iu;
@@ -56,26 +56,64 @@ function stripEmphasis(value) {
     .replace(/(?:\*\*|__|<\/strong>)/iu, '');
 }
 
+function wordsOf(value) {
+  return String(value ?? '').match(/[\p{L}À-ÿŒœ][\p{L}À-ÿŒœ'’-]*/gu) ?? [];
+}
+
+function emphasizedWords(value) {
+  const words = [];
+  const pattern = /(?:\*\*|__|<strong>)(.*?)(?:\*\*|__|<\/strong>)/giu;
+  for (const match of String(value ?? '').matchAll(pattern)) {
+    words.push(...wordsOf(match[1]));
+  }
+  return words;
+}
+
 function normalizeLines(source) {
   if (Array.isArray(source)) {
     return source.flatMap((line, sourceIndex) => {
       const text = typeof line === 'string' ? line : line?.text;
-      return String(text ?? '').split(/\r?\n/).map((part) => ({
-        text: cleanLine(part),
-        isBoldStart: Boolean(
-          typeof line === 'object' && (line.isBoldStart || line.isBold)
-        ) || /^\s*(?:\*\*|__|<strong>)/iu.test(part),
-        pageNumber: typeof line === 'object' ? line.pageNumber : undefined,
-        sourceIndex
-      }));
+      return String(text ?? '').split(/\r?\n/).map((part) => {
+        const markedWords = emphasizedWords(part);
+        const suppliedWords =
+          typeof line === 'object'
+            ? Array.isArray(line.boldWords)
+              ? line.boldWords
+              : wordsOf(line.boldText)
+            : [];
+        const hasSuppliedMetadata = Boolean(
+          typeof line === 'object' &&
+          (
+            Object.hasOwn(line, 'boldWords') ||
+            Object.hasOwn(line, 'boldText')
+          )
+        );
+
+        return {
+          text: cleanLine(part),
+          isBoldStart: Boolean(
+            typeof line === 'object' && (line.isBoldStart || line.isBold)
+          ) || /^\s*(?:\*\*|__|<strong>)/iu.test(part),
+          boldWords: [...suppliedWords, ...markedWords],
+          hasBoldWordMetadata:
+            hasSuppliedMetadata || markedWords.length > 0,
+          pageNumber: typeof line === 'object' ? line.pageNumber : undefined,
+          sourceIndex
+        };
+      });
     });
   }
 
-  return String(source ?? '').split(/\r?\n/).map((text, sourceIndex) => ({
-    text: cleanLine(text),
-    isBoldStart: /^\s*(?:\*\*|__|<strong>)/iu.test(text),
-    sourceIndex
-  }));
+  return String(source ?? '').split(/\r?\n/).map((text, sourceIndex) => {
+    const markedWords = emphasizedWords(text);
+    return {
+      text: cleanLine(text),
+      isBoldStart: /^\s*(?:\*\*|__|<strong>)/iu.test(text),
+      boldWords: markedWords,
+      hasBoldWordMetadata: markedWords.length > 0,
+      sourceIndex
+    };
+  });
 }
 
 export function getLeadingBloomVerb(value) {
@@ -94,10 +132,6 @@ const LEADING_CONNECTORS = new Set([
   'en', 'puis', 'ensuite', 'enfin', 'alors', 'donc', 'ainsi', 'apres'
 ]);
 
-function wordsOf(value) {
-  return value.match(/[\p{L}À-ÿŒœ][\p{L}À-ÿŒœ'’-]*/gu) ?? [];
-}
-
 function firstBloomAfterConnectors(words) {
   for (const word of words) {
     const normalized = fold(word.replace(/[’']/g, ''));
@@ -109,23 +143,44 @@ function firstBloomAfterConnectors(words) {
 
 /**
  * Détecte un verbe de Bloom en tête de proposition : en début de ligne (en
- * sautant d'éventuels connecteurs), ou juste après la première virgule. Couvre
- * « En déduire… » et « À partir du graphique, déterminer… » sans découper une
- * consigne à chacun de ses verbes internes.
+ * sautant d'éventuels connecteurs), ou juste après une ponctuation d'amorce.
+ * Le type de position est conservé afin que l'appelant exige un signal de gras
+ * pour les verbes non initiaux.
  */
-export function getBloomVerbNearStart(value) {
+export function getBloomMatchNearStart(value) {
   const base = stripEmphasis(value).replace(NUMBERED_PATTERN, '$3');
 
-  const leading = firstBloomAfterConnectors(wordsOf(base));
-  if (leading) return leading;
+  const direct = getLeadingBloomVerb(base);
+  if (direct) return { verb: direct, position: 'initial' };
 
-  const commaIndex = base.indexOf(',');
-  if (commaIndex >= 0) {
-    const clause = firstBloomAfterConnectors(wordsOf(base.slice(commaIndex + 1)));
-    if (clause) return clause;
+  const afterConnectors = firstBloomAfterConnectors(wordsOf(base));
+  if (afterConnectors) {
+    return { verb: afterConnectors, position: 'prefixed' };
+  }
+
+  for (const punctuation of base.matchAll(/[,;:]/gu)) {
+    const clause = firstBloomAfterConnectors(
+      wordsOf(base.slice(punctuation.index + punctuation[0].length))
+    );
+    if (clause) return { verb: clause, position: 'prefixed' };
   }
 
   return null;
+}
+
+export function getBloomVerbNearStart(value) {
+  return getBloomMatchNearStart(value)?.verb ?? null;
+}
+
+function lineHasBoldVerb(line, verb, position) {
+  if (position === 'initial' && line.isBoldStart) return true;
+  const normalizedVerb = fold(verb.replace(/[’']/g, ''));
+  const explicitlyBold = line.boldWords.some(
+    (word) => fold(word.replace(/[’']/g, '')) === normalizedVerb
+  );
+  if (explicitlyBold) return true;
+  if (line.hasBoldWordMetadata) return false;
+  return line.isBoldStart;
 }
 
 function isQuestionLike(value) {
@@ -303,13 +358,14 @@ function extractBloom(lines) {
   const candidates = [];
 
   lines.forEach((line, lineIndex) => {
-    const verb = getBloomVerbNearStart(line.text);
-    if (!verb) return;
+    const match = getBloomMatchNearStart(line.text);
+    if (!match) return;
 
     const candidate = {
       lineIndex,
-      verb,
-      isBoldStart: line.isBoldStart
+      verb: match.verb,
+      position: match.position,
+      isBoldStart: lineHasBoldVerb(line, match.verb, match.position)
     };
     candidate.score = scoreBloomCandidate(candidate, lines);
     candidates.push(candidate);
@@ -325,6 +381,7 @@ function extractBloom(lines) {
   const hasReliableBoldSignal = best.isBoldStart && (!runnerUp || best.score > runnerUp.score);
   const isUniquePlainCandidate =
     credible.length === 1 &&
+    best.position === 'initial' &&
     previewFrom(lines, best.lineIndex, 4).length >= 35;
 
   if (!hasReliableBoldSignal && !isUniquePlainCandidate) {
@@ -341,7 +398,9 @@ function extractBloom(lines) {
       confidence: 'low',
       requiresReview: true,
       suggestion: suggestions.join('\n\n---\n\n'),
-      reason: 'Plusieurs consignes commençant par un verbe de Bloom ont été trouvées.'
+      reason: credible.length > 1
+        ? 'Plusieurs consignes commençant par un verbe de Bloom ont été trouvées.'
+        : 'Un verbe de Bloom non initial a été trouvé, mais son format en gras doit être confirmé.'
     };
   }
 

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const app = await readFile(new URL('../scripts/evalvoice.mjs', import.meta.url), 'utf8');
+const build = await readFile(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
 
 test('la page ne charge aucun script tiers et ne contient aucun gestionnaire inline', () => {
   assert.doesNotMatch(html, /https?:\/\/(?:cdnjs|unpkg|jsdelivr)/iu);
@@ -25,4 +26,23 @@ test('la réponse est une zone multiligne et le sélecteur PDF reste accessible'
   assert.match(html, /<textarea[\s\S]*?id="responseInput"/u);
   assert.match(html, /<input id="fileInput" type="file"/u);
   assert.doesNotMatch(html, /id="fileInput"[^>]+display\s*:\s*none/iu);
+});
+
+test('la boîte de validation et la progression ont un nom accessible', () => {
+  assert.match(
+    html,
+    /<dialog[\s\S]*?aria-labelledby="reviewDialogTitle"/u
+  );
+  assert.match(html, /<h2 id="reviewDialogTitle">/u);
+  assert.match(
+    html,
+    /<progress[\s\S]*?aria-labelledby="progressText"/u
+  );
+});
+
+test('le build embarque les deux polices Unicode et leur licence', () => {
+  assert.match(build, /DejaVuSans\.ttf/u);
+  assert.match(build, /DejaVuSans-Bold\.ttf/u);
+  assert.match(build, /DejaVu-LICENSE\.txt/u);
+  assert.match(build, /scripts\/pdf_export\.mjs/u);
 });

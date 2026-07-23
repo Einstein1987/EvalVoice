@@ -23,6 +23,11 @@ par un verbe de Bloom peut encore être reconnue avec une confiance moyenne.
 Si plusieurs consignes sont possibles, EvalVoice affiche une boîte de
 vérification au lieu de choisir silencieusement.
 
+Les amorces comme `En déduire…`, `À partir des documents 1, 2 et 3,
+analyser…` ou `À partir du graphique : déterminer…` sont également reconnues.
+Lorsque le verbe n’est pas le premier mot, son format en gras est exigé pour
+une acceptation automatique ; sinon EvalVoice demande une confirmation.
+
 ## Utilisation
 
 - Charger un PDF local de 20 Mo maximum, ou coller un lien Google Docs.
@@ -31,6 +36,9 @@ vérification au lieu de choisir silencieusement.
 - Pour une réponse longue, la dictée continue jusqu’au clic sur
   « Arrêter la dictée ».
 - Exporter les questions et réponses en PDF.
+
+L’export utilise une police DejaVu Sans locale afin de conserver les accents,
+lettres grecques, flèches, indices et exposants des contenus scientifiques.
 
 La reconnaissance vocale fonctionne surtout dans les navigateurs Chromium.
 Quand elle n’est pas disponible, toutes les fonctions de saisie au clavier,
@@ -63,7 +71,8 @@ npm run build
 
 Le site prêt à publier est généré dans `dist/`. Les versions de PDF.js et
 jsPDF sont verrouillées dans `package-lock.json` et copiées localement lors du
-build : aucune bibliothèque JavaScript n’est chargée depuis un CDN.
+build : aucune bibliothèque JavaScript n’est chargée depuis un CDN. Les polices
+DejaVu Sans et leur licence sont également copiées dans `dist/vendor/fonts`.
 
 Commandes utiles :
 
@@ -77,6 +86,8 @@ npm run audit:prod
 `netlify.toml` configure le build, les en-têtes de sécurité et la fonction
 `/api/fetch-doc`. Les URL Netlify du déploiement sont autorisées
 automatiquement.
+
+Le déploiement de référence est <https://evalvoice.netlify.app/>.
 
 Pour ajouter d’autres domaines exacts, définir :
 
