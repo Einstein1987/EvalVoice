@@ -21,12 +21,19 @@ await Promise.all([
   copy('styles'),
   copy('scripts/evalvoice.mjs'),
   copy('scripts/pdf_extractor.mjs'),
+  copy('scripts/pdf_export.mjs'),
   copy('scripts/question_parser.mjs'),
   copy('scripts/session_store.mjs'),
   copy('scripts/speech_chunks.mjs'),
   copy('node_modules/pdfjs-dist/build/pdf.mjs', 'vendor/pdfjs/pdf.mjs'),
   copy('node_modules/pdfjs-dist/build/pdf.worker.mjs', 'vendor/pdfjs/pdf.worker.mjs'),
-  copy('node_modules/jspdf/dist/jspdf.umd.min.js', 'vendor/jspdf/jspdf.umd.min.js')
+  copy('node_modules/jspdf/dist/jspdf.umd.min.js', 'vendor/jspdf/jspdf.umd.min.js'),
+  copy('node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf', 'vendor/fonts/DejaVuSans.ttf'),
+  copy(
+    'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf',
+    'vendor/fonts/DejaVuSans-Bold.ttf'
+  ),
+  copy('node_modules/dejavu-fonts-ttf/LICENSE', 'vendor/fonts/DejaVu-LICENSE.txt')
 ]);
 
 console.log('EvalVoice construit dans dist/.');

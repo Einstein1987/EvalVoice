@@ -101,6 +101,7 @@
               <progress
                 id="progressBar"
                 class="progress-track"
+                aria-labelledby="progressText"
                 max="1"
                 value="1"
               >
@@ -224,10 +225,15 @@
       </section>
     </main>
 
-    <dialog id="questionReviewDialog" class="review-dialog">
+    <dialog
+      id="questionReviewDialog"
+      class="review-dialog"
+      aria-labelledby="reviewDialogTitle"
+      aria-describedby="reviewReason"
+    >
       <form id="reviewForm" method="dialog">
         <p class="eyebrow">Vérification nécessaire</p>
-        <h2>Confirmer la ou les questions</h2>
+        <h2 id="reviewDialogTitle">Confirmer la ou les questions</h2>
         <p id="reviewReason"></p>
         <p class="field-help">
           Corrigez le texte si besoin. Pour séparer plusieurs questions, placez

@@ -84,6 +84,19 @@ test('ne confond pas une liste de barème avec des questions', () => {
   assert.equal(result.questions.length, 0);
 });
 
+test('arrête la dernière question avant un barème renseigné sur la même ligne', () => {
+  const result = detectQuestions([
+    { text: '1) Identifier la grandeur représentée sur le graphique.' },
+    { text: '2) Calculer sa valeur puis justifier la méthode choisie.' },
+    { text: 'Barème : 5 points répartis entre le calcul et la justification.' },
+    { text: 'Présentation : 1 point' }
+  ]);
+
+  assert.equal(result.requiresReview, false);
+  assert.equal(result.questions.length, 2);
+  assert.doesNotMatch(result.questions[1], /Barème/u);
+});
+
 test('demande une validation quand plusieurs verbes de Bloom en gras sont ambigus', () => {
   const result = detectQuestions([
     { text: 'Analyser les résultats de la première expérience.', isBoldStart: true },
@@ -128,6 +141,62 @@ test('reconnaît un verbe de Bloom après un connecteur ou une virgule', () => {
     'déterminer'
   );
   assert.equal(getBloomVerbNearStart('Puis calculer la valeur moyenne.'), 'calculer');
+});
+
+test('reconnaît les amorces à plusieurs virgules et avec deux-points', () => {
+  assert.equal(
+    getBloomVerbNearStart(
+      'À partir des documents 1, 2 et 3, analyser la solution proposée.'
+    ),
+    'analyser'
+  );
+  assert.equal(
+    getBloomVerbNearStart(
+      'À partir du graphique : déterminer la constante de temps.'
+    ),
+    'déterminer'
+  );
+});
+
+test('auto-accepte une amorce non initiale seulement si le verbe est en gras', () => {
+  const boldResult = detectQuestions([
+    {
+      text: 'À partir des documents 1, 2 et 3, analyser la solution proposée et justifier la réponse.',
+      boldWords: ['analyser']
+    }
+  ]);
+  const plainResult = detectQuestions([
+    {
+      text: 'À partir des documents 1, 2 et 3, analyser la solution proposée et justifier la réponse.'
+    }
+  ]);
+
+  assert.equal(boldResult.strategy, 'bold-bloom-verb');
+  assert.equal(boldResult.requiresReview, false);
+  assert.equal(plainResult.strategy, 'ambiguous-bloom');
+  assert.equal(plainResult.requiresReview, true);
+});
+
+test('reconnaît un verbe non initial entouré de marqueurs de gras', () => {
+  const result = detectQuestions(
+    'Sujet\nÀ partir du graphique : **déterminer** la constante de temps du système.'
+  );
+
+  assert.equal(result.strategy, 'bold-bloom-verb');
+  assert.equal(result.requiresReview, false);
+  assert.equal(result.bloomVerb, 'déterminer');
+});
+
+test('envoie une phrase descriptive avec un verbe après virgule en validation', () => {
+  const result = detectQuestions([
+    {
+      text: 'Dans cette fiche, observer signifie regarder attentivement sans intervenir.'
+    }
+  ]);
+
+  assert.equal(result.strategy, 'ambiguous-bloom');
+  assert.equal(result.requiresReview, true);
+  assert.equal(result.questions.length, 0);
 });
 
 test('n’assimile pas un verbe interne de consigne à une amorce', () => {

@@ -1,5 +1,6 @@
 import * as pdfjsLib from '../vendor/pdfjs/pdf.mjs';
 import { extractPdfDocument } from './pdf_extractor.mjs';
+import { createResponsesPdf, loadPdfFontFiles } from './pdf_export.mjs';
 import { detectQuestions } from './question_parser.mjs';
 import { createSessionStore } from './session_store.mjs';
 import { splitIntoSpeechChunks } from './speech_chunks.mjs';
@@ -74,6 +75,7 @@ class EvalVoiceApp {
     this.loadSequence = 0;
     this.saveTimer = null;
     this.reviewResolver = null;
+    this.pdfFontFilesPromise = null;
     this.store = createSessionStore();
     this.elements = {};
   }
@@ -792,7 +794,17 @@ class EvalVoiceApp {
     }
   }
 
-  exportResponses() {
+  async getPdfFontFiles() {
+    if (!this.pdfFontFilesPromise) {
+      this.pdfFontFilesPromise = loadPdfFontFiles().catch((error) => {
+        this.pdfFontFilesPromise = null;
+        throw error;
+      });
+    }
+    return this.pdfFontFilesPromise;
+  }
+
+  async exportResponses() {
     this.saveVisibleResponse(false);
     this.stopRecording({ announce: false, abort: true });
     const studentName = this.elements.studentName.value.trim();
@@ -806,89 +818,26 @@ class EvalVoiceApp {
       return;
     }
 
+    const exportState = {
+      evaluationTitle: this.evaluationTitle,
+      studentName,
+      questions: [...this.questions],
+      responses: [...this.responses]
+    };
+    this.elements.exportResponses.disabled = true;
+
     try {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      const margin = 15;
-      const pageBottom = 278;
-      const lineHeight = 5.5;
-      let y = 16;
-
-      const nextPageIfNeeded = (height = lineHeight) => {
-        if (y + height <= pageBottom) return;
-        doc.addPage();
-        y = 16;
-      };
-
-      const writeWrapped = (text, {
-        size = 11,
-        style = 'normal',
-        indent = 0,
-        spacingAfter = 3
-      } = {}) => {
-        doc.setFont('helvetica', style);
-        doc.setFontSize(size);
-        const lines = doc.splitTextToSize(String(text), 180 - indent);
-        for (const line of lines) {
-          nextPageIfNeeded(lineHeight);
-          doc.text(line, margin + indent, y);
-          y += lineHeight;
-        }
-        y += spacingAfter;
-      };
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(17);
-      const titleLines = doc.splitTextToSize(this.evaluationTitle || 'Évaluation', 180);
-      for (const line of titleLines) {
-        nextPageIfNeeded(8);
-        doc.text(line, 105, y, { align: 'center' });
-        y += 8;
-      }
-      y += 2;
-      doc.setDrawColor(11, 92, 171);
-      doc.line(margin, y, 210 - margin, y);
-      y += 7;
-
-      writeWrapped(`Élève : ${studentName}`, { style: 'bold', spacingAfter: 1 });
-      writeWrapped(`Exporté le ${new Date().toLocaleString('fr-FR')}`, {
-        size: 9,
-        spacingAfter: 6
+      const fontFiles = await this.getPdfFontFiles();
+      const doc = createResponsesPdf({
+        jsPDF,
+        fontFiles,
+        ...exportState
       });
-
-      this.questions.forEach((question, index) => {
-        nextPageIfNeeded(18);
-        writeWrapped(`Question ${index + 1}`, {
-          size: 12,
-          style: 'bold',
-          spacingAfter: 1
-        });
-        writeWrapped(question, { style: 'bold', spacingAfter: 3 });
-        writeWrapped('Réponse', { size: 10, style: 'bold', spacingAfter: 1 });
-        writeWrapped(this.responses[index]?.trim() || 'Pas de réponse.', {
-          indent: 3,
-          spacingAfter: 7
-        });
-      });
-
-      const totalPages = doc.internal.getNumberOfPages();
-      const answered = this.responses.filter((response) => response?.trim()).length;
-      for (let page = 1; page <= totalPages; page += 1) {
-        doc.setPage(page);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(90);
-        doc.text(
-          `Page ${page}/${totalPages} — ${answered}/${this.questions.length} réponses`,
-          105,
-          290,
-          { align: 'center' }
-        );
-      }
 
       const filename = [
         'Evaluation',
-        cleanFilenamePart(this.evaluationTitle, 'Sujet'),
+        cleanFilenamePart(exportState.evaluationTitle, 'Sujet'),
         cleanFilenamePart(studentName, 'Eleve')
       ].join('_');
       doc.save(`${filename}.pdf`);
@@ -897,7 +846,12 @@ class EvalVoiceApp {
       this.showNotification('Les réponses ont été exportées en PDF.', 'success');
     } catch (error) {
       console.error(error);
-      this.showNotification('L’export PDF a échoué.', 'error');
+      this.showNotification(
+        error.message || 'L’export PDF a échoué.',
+        'error'
+      );
+    } finally {
+      this.elements.exportResponses.disabled = this.questions.length === 0;
     }
   }
 

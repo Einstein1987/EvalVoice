@@ -47,6 +47,38 @@ function splitSentenceByWords(sentence, limit) {
   return chunks;
 }
 
+function splitAtSentenceBoundaries(text) {
+  const sentences = [];
+  let start = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    if (!/[.!?;:…]/u.test(text[index])) continue;
+
+    let punctuationEnd = index;
+    while (
+      punctuationEnd + 1 < text.length &&
+      /[.!?;:…]/u.test(text[punctuationEnd + 1])
+    ) {
+      punctuationEnd += 1;
+    }
+
+    const nextCharacter = text[punctuationEnd + 1];
+    if (nextCharacter !== undefined && nextCharacter !== ' ') {
+      index = punctuationEnd;
+      continue;
+    }
+
+    const sentence = text.slice(start, punctuationEnd + 1).trim();
+    if (sentence) sentences.push(sentence);
+    start = punctuationEnd + 1;
+    index = punctuationEnd;
+  }
+
+  const remainder = text.slice(start).trim();
+  if (remainder) sentences.push(remainder);
+  return sentences;
+}
+
 /**
  * Découpe un texte en énoncés de synthèse d'au plus `limit` caractères.
  *
@@ -55,7 +87,10 @@ function splitSentenceByWords(sentence, limit) {
  * @returns {string[]}
  */
 export function splitIntoSpeechChunks(text, limit = SPEECH_CHUNK_LIMIT) {
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : SPEECH_CHUNK_LIMIT;
+  const safeLimit =
+    Number.isFinite(limit) && limit >= 1
+      ? Math.floor(limit)
+      : SPEECH_CHUNK_LIMIT;
   const normalized = String(text ?? '')
     .replace(/\s+/gu, ' ')
     .trim();
@@ -64,8 +99,10 @@ export function splitIntoSpeechChunks(text, limit = SPEECH_CHUNK_LIMIT) {
   if (normalized.length <= safeLimit) return [normalized];
 
   // On conserve la ponctuation finale de chaque phrase pour garder une
-  // prosodie correcte.
-  const sentences = normalized.match(/[^.!?;:…]+(?:[.!?;:…]+|$)/gu) ?? [normalized];
+  // prosodie correcte. Une ponctuation n'est une frontière que si elle est
+  // suivie d'une espace ou de la fin du texte : les décimales (9.81), ratios
+  // (1:2), URL et autres notations scientifiques restent donc intactes.
+  const sentences = splitAtSentenceBoundaries(normalized);
   const chunks = [];
   let current = '';
 

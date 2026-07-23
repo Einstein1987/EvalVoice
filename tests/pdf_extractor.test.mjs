@@ -73,6 +73,46 @@ test('conserve le signal de gras au début de la ligne', () => {
   assert.equal(lines.length, 1);
   assert.equal(lines[0].text, 'Analyser les résultats.');
   assert.equal(lines[0].isBoldStart, true);
+  assert.deepEqual(lines[0].boldWords, ['Analyser']);
+});
+
+test('conserve le mot en gras après une amorce non grasse', () => {
+  const lines = pageItemsToLines({
+    styles: {
+      Bold: { fontFamily: 'Liberation Sans Bold' },
+      Regular: { fontFamily: 'Liberation Sans' }
+    },
+    items: [
+      {
+        str: 'À partir du graphique,',
+        transform: [10, 0, 0, 10, 10, 700],
+        width: 105,
+        height: 10,
+        fontName: 'Regular'
+      },
+      {
+        str: 'déterminer',
+        transform: [10, 0, 0, 10, 120, 700],
+        width: 48,
+        height: 10,
+        fontName: 'Bold'
+      },
+      {
+        str: 'la constante de temps.',
+        transform: [10, 0, 0, 10, 173, 700],
+        width: 92,
+        height: 10,
+        fontName: 'Regular'
+      }
+    ]
+  }, 1);
+
+  assert.equal(
+    lines[0].text,
+    'À partir du graphique, déterminer la constante de temps.'
+  );
+  assert.equal(lines[0].isBoldStart, false);
+  assert.deepEqual(lines[0].boldWords, ['déterminer']);
 });
 
 test('reconnaît de bout en bout le verbe en gras dans un vrai PDF', async () => {
@@ -100,4 +140,36 @@ test('reconnaît de bout en bout le verbe en gras dans un vrai PDF', async () =>
   assert.equal(result.questions.length, 1);
   assert.match(result.questions[0], /^Analyser les documents/u);
   assert.doesNotMatch(result.questions[0], /Critères/u);
+});
+
+test('reconnaît dans un vrai PDF un verbe en gras après plusieurs virgules', async () => {
+  const document = new jsPDF();
+  const prefix = 'À partir des documents 1, 2 et 3,';
+  const verb = 'analyser';
+  const suffix = 'la solution proposée et justifier la réponse.';
+  const y = 38;
+
+  document.setFont('helvetica', 'normal');
+  document.text('Évaluation niveau 3', 15, 18);
+  document.text(prefix, 15, y);
+  let x = 15 + document.getTextWidth(prefix) + 1.5;
+  document.setFont('helvetica', 'bold');
+  document.text(verb, x, y);
+  x += document.getTextWidth(verb) + 1.5;
+  document.setFont('helvetica', 'normal');
+  document.text(suffix, x, y);
+  document.setFont('helvetica', 'bold');
+  document.text('Barème : 10 points', 15, 65);
+
+  const extracted = await extractPdfDocument(
+    new Uint8Array(document.output('arraybuffer')),
+    pdfjsLib
+  );
+  const result = detectQuestions(extracted.lines);
+
+  assert.equal(result.strategy, 'bold-bloom-verb');
+  assert.equal(result.bloomVerb, verb);
+  assert.equal(result.questions.length, 1);
+  assert.match(result.questions[0], /^À partir des documents 1, 2 et 3, analyser/u);
+  assert.doesNotMatch(result.questions[0], /Barème/u);
 });
