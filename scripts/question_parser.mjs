@@ -33,6 +33,12 @@ const SECTION_BOUNDARY_PATTERN =
 const NEGATIVE_CONTEXT_PATTERN =
   /\b(?:bar[eè]me|notation|points?|crit[eè]res?|corrig[eé]|correction)\b/iu;
 
+// Les grilles d'évaluation placent souvent un code très court (COM, RCO/,
+// APP...) juste après la formulation d'une compétence. Ce signal permet de ne
+// pas confondre « Rédiger un texte... » avec une consigne destinée à l'élève.
+const COMPETENCY_CODE_PATTERN =
+  /^[A-ZÀ-ÖØ-Þ]{2,6}(?:\s*[/+.-]\s*[A-ZÀ-ÖØ-Þ0-9]{0,6})?$/u;
+
 const INTERROGATIVE_PATTERN =
   /^(?:a\s+partir|comment|dans\s+quelle\s+mesure|de\s+quelle|explique|indique|pourquoi|qu['’]est-ce|quel(?:le)?s?\b|qui\b|relevez|selon\b)/iu;
 
@@ -354,12 +360,78 @@ function scoreBloomCandidate(candidate, lines) {
   return score;
 }
 
+function nextNonEmptyLine(lines, startIndex) {
+  return lines.slice(startIndex).find((line) => line.text);
+}
+
+function isCompetencyGridCandidate(lines, lineIndex) {
+  const nextLine = nextNonEmptyLine(lines, lineIndex + 1);
+  return Boolean(nextLine && COMPETENCY_CODE_PATTERN.test(nextLine.text));
+}
+
+function hasSectionBoundaryBetween(lines, startIndex, endIndex) {
+  return lines
+    .slice(startIndex + 1, endIndex)
+    .some((line) => SECTION_BOUNDARY_PATTERN.test(line.text));
+}
+
+function extractBoldBloomSequence(candidates, lines) {
+  const boldCandidates = candidates.filter((candidate) => candidate.isBoldStart);
+  if (boldCandidates.length < 2) return null;
+
+  // Une limite de section sépare deux groupes de consignes. On retient le
+  // groupe cohérent le mieux noté, puis on borne chaque question à la suivante.
+  const runs = [];
+  for (const candidate of boldCandidates) {
+    const currentRun = runs.at(-1);
+    const previous = currentRun?.at(-1);
+    if (
+      previous &&
+      !hasSectionBoundaryBetween(lines, previous.lineIndex, candidate.lineIndex)
+    ) {
+      currentRun.push(candidate);
+    } else {
+      runs.push([candidate]);
+    }
+  }
+
+  const bestRun = runs
+    .filter((run) => run.length >= 2)
+    .sort((left, right) => {
+      const scoreDifference =
+        right.reduce((total, candidate) => total + candidate.score, 0) -
+        left.reduce((total, candidate) => total + candidate.score, 0);
+      return scoreDifference || right.length - left.length;
+    })[0];
+  if (!bestRun) return null;
+
+  const questions = bestRun.map((candidate, index) => {
+    const nextCandidate = bestRun[index + 1];
+    const hardEnd = nextCandidate?.lineIndex ?? lines.length;
+    const endIndex = findBoundaryIndex(lines, candidate.lineIndex + 1, hardEnd);
+    return joinQuestionLines(lines, candidate.lineIndex, endIndex);
+  }).filter((question) => question.length >= 10);
+
+  if (questions.length !== bestRun.length) return null;
+
+  return {
+    questions,
+    strategy: 'bold-bloom-sequence',
+    confidence: 'high',
+    requiresReview: false,
+    bloomVerbs: bestRun.map((candidate) => candidate.verb),
+    reason:
+      `Une séquence de ${questions.length} consignes commençant par des verbes de Bloom en gras a été reconnue.`
+  };
+}
+
 function extractBloom(lines) {
   const candidates = [];
 
   lines.forEach((line, lineIndex) => {
     const match = getBloomMatchNearStart(line.text);
     if (!match) return;
+    if (isCompetencyGridCandidate(lines, lineIndex)) return;
 
     const candidate = {
       lineIndex,
@@ -373,11 +445,15 @@ function extractBloom(lines) {
 
   const credible = candidates
     .filter((candidate) => candidate.score >= 2)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => a.lineIndex - b.lineIndex);
   if (credible.length === 0) return null;
 
-  const best = credible[0];
-  const runnerUp = credible[1];
+  const sequence = extractBoldBloomSequence(credible, lines);
+  if (sequence) return sequence;
+
+  const ranked = [...credible].sort((a, b) => b.score - a.score);
+  const best = ranked[0];
+  const runnerUp = ranked[1];
   const hasReliableBoldSignal = best.isBoldStart && (!runnerUp || best.score > runnerUp.score);
   const isUniquePlainCandidate =
     credible.length === 1 &&
@@ -385,10 +461,19 @@ function extractBloom(lines) {
     previewFrom(lines, best.lineIndex, 4).length >= 35;
 
   if (!hasReliableBoldSignal && !isUniquePlainCandidate) {
-    const suggestions = credible
+    const suggestions = ranked
       .slice(0, 4)
-      .map((candidate) => {
-        const end = findBoundaryIndex(lines, candidate.lineIndex + 1);
+      .map((candidate, index, selected) => {
+        const nextCandidateIndex = selected
+          .filter((other) => other.lineIndex > candidate.lineIndex)
+          .map((other) => other.lineIndex)
+          .sort((a, b) => a - b)[0];
+        const hardEnd = nextCandidateIndex ?? lines.length;
+        const end = findBoundaryIndex(
+          lines,
+          candidate.lineIndex + 1,
+          hardEnd
+        );
         return joinQuestionLines(lines, candidate.lineIndex, end);
       });
 
