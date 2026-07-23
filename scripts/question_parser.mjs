@@ -16,7 +16,12 @@ const BLOOM_VERBS = new Set([
   'realisez', 'rediger', 'redigez', 'reformuler', 'reformulez', 'relier',
   'reliez', 'relever', 'relevez', 'reperer', 'reperez', 'resoudre', 'resolvez',
   'resumer', 'resumez', 'synthetiser', 'synthetisez', 'utiliser', 'utilisez',
-  'valider', 'validez', 'verifier', 'verifiez'
+  'valider', 'validez', 'verifier', 'verifiez',
+  // Verbes complémentaires fréquents en physique-chimie
+  'completer', 'completez', 'conclure', 'concluez', 'dater', 'datez',
+  'deduire', 'deduisez', 'extraire', 'extrayez', 'observer', 'observez',
+  'ordonner', 'ordonnez', 'prevoir', 'prevoyez', 'schematiser', 'schematisez',
+  'tracer', 'tracez'
 ]);
 
 const NUMBERED_PATTERN =
@@ -82,13 +87,54 @@ export function getLeadingBloomVerb(value) {
   return BLOOM_VERBS.has(normalized) ? match[1] : null;
 }
 
+// Connecteurs pouvant précéder le verbe en tête de consigne (« En déduire… »,
+// « Puis calculer… »). On s'arrête au premier mot non-connecteur : on ne
+// transforme donc pas chaque verbe interne d'une consigne en nouvelle question.
+const LEADING_CONNECTORS = new Set([
+  'en', 'puis', 'ensuite', 'enfin', 'alors', 'donc', 'ainsi', 'apres'
+]);
+
+function wordsOf(value) {
+  return value.match(/[\p{L}À-ÿŒœ][\p{L}À-ÿŒœ'’-]*/gu) ?? [];
+}
+
+function firstBloomAfterConnectors(words) {
+  for (const word of words) {
+    const normalized = fold(word.replace(/[’']/g, ''));
+    if (BLOOM_VERBS.has(normalized)) return word;
+    if (!LEADING_CONNECTORS.has(normalized)) return null;
+  }
+  return null;
+}
+
+/**
+ * Détecte un verbe de Bloom en tête de proposition : en début de ligne (en
+ * sautant d'éventuels connecteurs), ou juste après la première virgule. Couvre
+ * « En déduire… » et « À partir du graphique, déterminer… » sans découper une
+ * consigne à chacun de ses verbes internes.
+ */
+export function getBloomVerbNearStart(value) {
+  const base = stripEmphasis(value).replace(NUMBERED_PATTERN, '$3');
+
+  const leading = firstBloomAfterConnectors(wordsOf(base));
+  if (leading) return leading;
+
+  const commaIndex = base.indexOf(',');
+  if (commaIndex >= 0) {
+    const clause = firstBloomAfterConnectors(wordsOf(base.slice(commaIndex + 1)));
+    if (clause) return clause;
+  }
+
+  return null;
+}
+
 function isQuestionLike(value) {
   const text = stripEmphasis(value);
   return (
     text.length >= 12 &&
     (
       text.includes('?') ||
-      Boolean(getLeadingBloomVerb(text)) ||
+      Boolean(getBloomVerbNearStart(text)) ||
       INTERROGATIVE_PATTERN.test(text)
     )
   );
@@ -116,7 +162,7 @@ function scoreNumberedCandidate(candidate, lines) {
 
   if (candidate.explicitLabel) score += 4;
   if (isQuestionLike(content)) score += 4;
-  if (getLeadingBloomVerb(content)) score += 2;
+  if (getBloomVerbNearStart(content)) score += 2;
   if (content.length >= 25) score += 1;
   if (/\b\d+(?:[,.]\d+)?\s*(?:points?|pts?)\b/iu.test(content)) score -= 3;
   if (NEGATIVE_CONTEXT_PATTERN.test(nearbyContext(lines, candidate.lineIndex))) {
@@ -257,7 +303,7 @@ function extractBloom(lines) {
   const candidates = [];
 
   lines.forEach((line, lineIndex) => {
-    const verb = getLeadingBloomVerb(line.text);
+    const verb = getBloomVerbNearStart(line.text);
     if (!verb) return;
 
     const candidate = {

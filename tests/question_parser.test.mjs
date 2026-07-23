@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { detectQuestions, getLeadingBloomVerb } from '../scripts/question_parser.mjs';
+import {
+  detectQuestions,
+  getLeadingBloomVerb,
+  getBloomVerbNearStart
+} from '../scripts/question_parser.mjs';
 
 test('reconnaît une évaluation de niveau 2 numérotée 1), 2), 3)', () => {
   const result = detectQuestions([
@@ -107,4 +111,39 @@ test('tolère un PDF qui ne permet pas d’identifier le gras si la tâche est u
 test('normalise les accents pour les verbes de Bloom', () => {
   assert.equal(getLeadingBloomVerb('Élaborer un protocole expérimental.'), 'Élaborer');
   assert.equal(getLeadingBloomVerb('Récitez ce texte.'), null);
+});
+
+test('reconnaît les verbes de physique-chimie ajoutés', () => {
+  assert.equal(getLeadingBloomVerb('Schématiser le circuit électrique.'), 'Schématiser');
+  assert.equal(getLeadingBloomVerb('Tracer la courbe d’étalonnage.'), 'Tracer');
+  assert.equal(getLeadingBloomVerb('Compléter le tableau de mesures.'), 'Compléter');
+  assert.equal(getLeadingBloomVerb('Conclure quant à la nature du mélange.'), 'Conclure');
+  assert.equal(getLeadingBloomVerb('Extraire les informations utiles du document.'), 'Extraire');
+});
+
+test('reconnaît un verbe de Bloom après un connecteur ou une virgule', () => {
+  assert.equal(getBloomVerbNearStart('En déduire l’expression de la vitesse.'), 'déduire');
+  assert.equal(
+    getBloomVerbNearStart('À partir du graphique, déterminer la constante de temps.'),
+    'déterminer'
+  );
+  assert.equal(getBloomVerbNearStart('Puis calculer la valeur moyenne.'), 'calculer');
+});
+
+test('n’assimile pas un verbe interne de consigne à une amorce', () => {
+  assert.equal(
+    getBloomVerbNearStart('Votre réponse doit mobiliser les données et justifier les choix.'),
+    null
+  );
+});
+
+test('reconnaît une tâche complexe amorcée par « En déduire » en gras', () => {
+  const result = detectQuestions([
+    { text: 'Exercice' },
+    { text: 'En déduire la concentration de la solution inconnue.', isBoldStart: true }
+  ]);
+
+  assert.equal(result.requiresReview, false);
+  assert.equal(result.strategy, 'bold-bloom-verb');
+  assert.equal(result.bloomVerb, 'déduire');
 });

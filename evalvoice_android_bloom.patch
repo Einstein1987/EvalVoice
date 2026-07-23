@@ -1,0 +1,406 @@
+diff --git a/scripts/build.mjs b/scripts/build.mjs
+index 106c1ea..91c4a7b 100644
+--- a/scripts/build.mjs
++++ b/scripts/build.mjs
+@@ -23,6 +23,7 @@ await Promise.all([
+   copy('scripts/pdf_extractor.mjs'),
+   copy('scripts/question_parser.mjs'),
+   copy('scripts/session_store.mjs'),
++  copy('scripts/speech_chunks.mjs'),
+   copy('node_modules/pdfjs-dist/build/pdf.mjs', 'vendor/pdfjs/pdf.mjs'),
+   copy('node_modules/pdfjs-dist/build/pdf.worker.mjs', 'vendor/pdfjs/pdf.worker.mjs'),
+   copy('node_modules/jspdf/dist/jspdf.umd.min.js', 'vendor/jspdf/jspdf.umd.min.js')
+diff --git a/scripts/evalvoice.mjs b/scripts/evalvoice.mjs
+index 406a058..afd88bb 100644
+--- a/scripts/evalvoice.mjs
++++ b/scripts/evalvoice.mjs
+@@ -2,6 +2,7 @@ import * as pdfjsLib from '../vendor/pdfjs/pdf.mjs';
+ import { extractPdfDocument } from './pdf_extractor.mjs';
+ import { detectQuestions } from './question_parser.mjs';
+ import { createSessionStore } from './session_store.mjs';
++import { splitIntoSpeechChunks } from './speech_chunks.mjs';
+ 
+ pdfjsLib.GlobalWorkerOptions.workerSrc =
+   new URL('../vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
+@@ -467,20 +468,15 @@ class EvalVoiceApp {
+     this.stopSpeech({ announce: false });
+     this.renderCurrentQuestion();
+ 
++    // La synthèse est découpée en énoncés courts (≤ 200 caractères) : au-delà,
++    // Android/ChromeOS tronque ou échoue silencieusement, notamment sur les
++    // tâches complexes longues. Les morceaux sont lus les uns après les autres.
++    const chunks = splitIntoSpeechChunks(this.questions[this.currentQuestion]);
++    if (chunks.length === 0) return;
++
+     const token = ++this.speechToken;
+-    const utterance = new SpeechSynthesisUtterance(
+-      this.questions[this.currentQuestion]
+-    );
+-    this.currentUtterance = utterance;
+-    utterance.lang = 'fr-FR';
+-    utterance.rate = this.speechRate;
+ 
+-    utterance.addEventListener('start', () => {
+-      if (token !== this.speechToken) return;
+-      this.elements.synthesisIndicator.hidden = false;
+-      this.elements.stopSpeech.disabled = false;
+-    });
+-    utterance.addEventListener('end', () => {
++    const finish = () => {
+       if (token !== this.speechToken) return;
+       this.elements.synthesisIndicator.hidden = true;
+       this.elements.stopSpeech.disabled = true;
+@@ -497,15 +493,39 @@ class EvalVoiceApp {
+           );
+         }
+       }
+-    });
+-    utterance.addEventListener('error', () => {
+-      if (token !== this.speechToken) return;
+-      this.elements.synthesisIndicator.hidden = true;
+-      this.elements.stopSpeech.disabled = true;
+-      this.currentUtterance = null;
+-    });
++    };
++
++    const speakChunk = (index) => {
++      if (token !== this.speechToken || index >= chunks.length) return;
++
++      const isFirst = index === 0;
++      const isLast = index === chunks.length - 1;
++      const utterance = new SpeechSynthesisUtterance(chunks[index]);
++      this.currentUtterance = utterance;
++      utterance.lang = 'fr-FR';
++      utterance.rate = this.speechRate;
++
++      utterance.addEventListener('start', () => {
++        if (token !== this.speechToken || !isFirst) return;
++        this.elements.synthesisIndicator.hidden = false;
++        this.elements.stopSpeech.disabled = false;
++      });
++      utterance.addEventListener('end', () => {
++        if (token !== this.speechToken) return;
++        if (isLast) finish();
++        else speakChunk(index + 1);
++      });
++      utterance.addEventListener('error', () => {
++        if (token !== this.speechToken) return;
++        this.elements.synthesisIndicator.hidden = true;
++        this.elements.stopSpeech.disabled = true;
++        this.currentUtterance = null;
++      });
++
++      this.synthesis.speak(utterance);
++    };
+ 
+-    this.synthesis.speak(utterance);
++    speakChunk(0);
+   }
+ 
+   stopSpeech({ announce = true } = {}) {
+diff --git a/scripts/question_parser.mjs b/scripts/question_parser.mjs
+index 59cdece..005fc3a 100644
+--- a/scripts/question_parser.mjs
++++ b/scripts/question_parser.mjs
+@@ -16,7 +16,12 @@ const BLOOM_VERBS = new Set([
+   'realisez', 'rediger', 'redigez', 'reformuler', 'reformulez', 'relier',
+   'reliez', 'relever', 'relevez', 'reperer', 'reperez', 'resoudre', 'resolvez',
+   'resumer', 'resumez', 'synthetiser', 'synthetisez', 'utiliser', 'utilisez',
+-  'valider', 'validez', 'verifier', 'verifiez'
++  'valider', 'validez', 'verifier', 'verifiez',
++  // Verbes complémentaires fréquents en physique-chimie
++  'completer', 'completez', 'conclure', 'concluez', 'dater', 'datez',
++  'deduire', 'deduisez', 'extraire', 'extrayez', 'observer', 'observez',
++  'ordonner', 'ordonnez', 'prevoir', 'prevoyez', 'schematiser', 'schematisez',
++  'tracer', 'tracez'
+ ]);
+ 
+ const NUMBERED_PATTERN =
+@@ -82,13 +87,54 @@ export function getLeadingBloomVerb(value) {
+   return BLOOM_VERBS.has(normalized) ? match[1] : null;
+ }
+ 
++// Connecteurs pouvant précéder le verbe en tête de consigne (« En déduire… »,
++// « Puis calculer… »). On s'arrête au premier mot non-connecteur : on ne
++// transforme donc pas chaque verbe interne d'une consigne en nouvelle question.
++const LEADING_CONNECTORS = new Set([
++  'en', 'puis', 'ensuite', 'enfin', 'alors', 'donc', 'ainsi', 'apres'
++]);
++
++function wordsOf(value) {
++  return value.match(/[\p{L}À-ÿŒœ][\p{L}À-ÿŒœ'’-]*/gu) ?? [];
++}
++
++function firstBloomAfterConnectors(words) {
++  for (const word of words) {
++    const normalized = fold(word.replace(/[’']/g, ''));
++    if (BLOOM_VERBS.has(normalized)) return word;
++    if (!LEADING_CONNECTORS.has(normalized)) return null;
++  }
++  return null;
++}
++
++/**
++ * Détecte un verbe de Bloom en tête de proposition : en début de ligne (en
++ * sautant d'éventuels connecteurs), ou juste après la première virgule. Couvre
++ * « En déduire… » et « À partir du graphique, déterminer… » sans découper une
++ * consigne à chacun de ses verbes internes.
++ */
++export function getBloomVerbNearStart(value) {
++  const base = stripEmphasis(value).replace(NUMBERED_PATTERN, '$3');
++
++  const leading = firstBloomAfterConnectors(wordsOf(base));
++  if (leading) return leading;
++
++  const commaIndex = base.indexOf(',');
++  if (commaIndex >= 0) {
++    const clause = firstBloomAfterConnectors(wordsOf(base.slice(commaIndex + 1)));
++    if (clause) return clause;
++  }
++
++  return null;
++}
++
+ function isQuestionLike(value) {
+   const text = stripEmphasis(value);
+   return (
+     text.length >= 12 &&
+     (
+       text.includes('?') ||
+-      Boolean(getLeadingBloomVerb(text)) ||
++      Boolean(getBloomVerbNearStart(text)) ||
+       INTERROGATIVE_PATTERN.test(text)
+     )
+   );
+@@ -116,7 +162,7 @@ function scoreNumberedCandidate(candidate, lines) {
+ 
+   if (candidate.explicitLabel) score += 4;
+   if (isQuestionLike(content)) score += 4;
+-  if (getLeadingBloomVerb(content)) score += 2;
++  if (getBloomVerbNearStart(content)) score += 2;
+   if (content.length >= 25) score += 1;
+   if (/\b\d+(?:[,.]\d+)?\s*(?:points?|pts?)\b/iu.test(content)) score -= 3;
+   if (NEGATIVE_CONTEXT_PATTERN.test(nearbyContext(lines, candidate.lineIndex))) {
+@@ -257,7 +303,7 @@ function extractBloom(lines) {
+   const candidates = [];
+ 
+   lines.forEach((line, lineIndex) => {
+-    const verb = getLeadingBloomVerb(line.text);
++    const verb = getBloomVerbNearStart(line.text);
+     if (!verb) return;
+ 
+     const candidate = {
+diff --git a/scripts/speech_chunks.mjs b/scripts/speech_chunks.mjs
+new file mode 100644
+index 0000000..052691d
+--- /dev/null
++++ b/scripts/speech_chunks.mjs
+@@ -0,0 +1,99 @@
++// Découpage du texte pour la synthèse vocale.
++//
++// Sur Android (et ChromeOS), l'implémentation de la Web Speech API tronque ou
++// échoue silencieusement au-delà d'environ 200 caractères par énoncé. On
++// découpe donc les questions longues — typiquement les tâches complexes de
++// niveau 3 — en morceaux courts, de préférence sur une frontière de phrase,
++// sinon sur une frontière de mot, et en dernier recours sur la limite dure.
++
++export const SPEECH_CHUNK_LIMIT = 200;
++
++function splitLongWord(word, limit) {
++  const pieces = [];
++  for (let index = 0; index < word.length; index += limit) {
++    pieces.push(word.slice(index, index + limit));
++  }
++  return pieces;
++}
++
++function splitSentenceByWords(sentence, limit) {
++  const chunks = [];
++  let current = '';
++
++  const flush = () => {
++    if (current) chunks.push(current);
++    current = '';
++  };
++
++  for (const word of sentence.split(' ')) {
++    if (!word) continue;
++
++    if (word.length > limit) {
++      flush();
++      chunks.push(...splitLongWord(word, limit));
++      continue;
++    }
++
++    const candidate = current ? `${current} ${word}` : word;
++    if (candidate.length > limit) {
++      flush();
++      current = word;
++    } else {
++      current = candidate;
++    }
++  }
++
++  flush();
++  return chunks;
++}
++
++/**
++ * Découpe un texte en énoncés de synthèse d'au plus `limit` caractères.
++ *
++ * @param {string} text
++ * @param {number} [limit]
++ * @returns {string[]}
++ */
++export function splitIntoSpeechChunks(text, limit = SPEECH_CHUNK_LIMIT) {
++  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : SPEECH_CHUNK_LIMIT;
++  const normalized = String(text ?? '')
++    .replace(/\s+/gu, ' ')
++    .trim();
++
++  if (!normalized) return [];
++  if (normalized.length <= safeLimit) return [normalized];
++
++  // On conserve la ponctuation finale de chaque phrase pour garder une
++  // prosodie correcte.
++  const sentences = normalized.match(/[^.!?;:…]+(?:[.!?;:…]+|$)/gu) ?? [normalized];
++  const chunks = [];
++  let current = '';
++
++  const flush = () => {
++    const trimmed = current.trim();
++    if (trimmed) chunks.push(trimmed);
++    current = '';
++  };
++
++  for (const rawSentence of sentences) {
++    const sentence = rawSentence.trim();
++    if (!sentence) continue;
++
++    if (sentence.length > safeLimit) {
++      flush();
++      chunks.push(...splitSentenceByWords(sentence, safeLimit));
++      continue;
++    }
++
++    const candidate = current ? `${current} ${sentence}` : sentence;
++    if (candidate.length > safeLimit) {
++      flush();
++      current = sentence;
++    } else {
++      current = candidate;
++    }
++  }
++
++  flush();
++  return chunks;
++}
+diff --git a/tests/question_parser.test.mjs b/tests/question_parser.test.mjs
+index 5bd8e3d..2eb0607 100644
+--- a/tests/question_parser.test.mjs
++++ b/tests/question_parser.test.mjs
+@@ -1,7 +1,11 @@
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+ 
+-import { detectQuestions, getLeadingBloomVerb } from '../scripts/question_parser.mjs';
++import {
++  detectQuestions,
++  getLeadingBloomVerb,
++  getBloomVerbNearStart
++} from '../scripts/question_parser.mjs';
+ 
+ test('reconnaît une évaluation de niveau 2 numérotée 1), 2), 3)', () => {
+   const result = detectQuestions([
+@@ -108,3 +112,38 @@ test('normalise les accents pour les verbes de Bloom', () => {
+   assert.equal(getLeadingBloomVerb('Élaborer un protocole expérimental.'), 'Élaborer');
+   assert.equal(getLeadingBloomVerb('Récitez ce texte.'), null);
+ });
++
++test('reconnaît les verbes de physique-chimie ajoutés', () => {
++  assert.equal(getLeadingBloomVerb('Schématiser le circuit électrique.'), 'Schématiser');
++  assert.equal(getLeadingBloomVerb('Tracer la courbe d’étalonnage.'), 'Tracer');
++  assert.equal(getLeadingBloomVerb('Compléter le tableau de mesures.'), 'Compléter');
++  assert.equal(getLeadingBloomVerb('Conclure quant à la nature du mélange.'), 'Conclure');
++  assert.equal(getLeadingBloomVerb('Extraire les informations utiles du document.'), 'Extraire');
++});
++
++test('reconnaît un verbe de Bloom après un connecteur ou une virgule', () => {
++  assert.equal(getBloomVerbNearStart('En déduire l’expression de la vitesse.'), 'déduire');
++  assert.equal(
++    getBloomVerbNearStart('À partir du graphique, déterminer la constante de temps.'),
++    'déterminer'
++  );
++  assert.equal(getBloomVerbNearStart('Puis calculer la valeur moyenne.'), 'calculer');
++});
++
++test('n’assimile pas un verbe interne de consigne à une amorce', () => {
++  assert.equal(
++    getBloomVerbNearStart('Votre réponse doit mobiliser les données et justifier les choix.'),
++    null
++  );
++});
++
++test('reconnaît une tâche complexe amorcée par « En déduire » en gras', () => {
++  const result = detectQuestions([
++    { text: 'Exercice' },
++    { text: 'En déduire la concentration de la solution inconnue.', isBoldStart: true }
++  ]);
++
++  assert.equal(result.requiresReview, false);
++  assert.equal(result.strategy, 'bold-bloom-verb');
++  assert.equal(result.bloomVerb, 'déduire');
++});
+diff --git a/tests/speech_chunks.test.mjs b/tests/speech_chunks.test.mjs
+new file mode 100644
+index 0000000..cb54fc5
+--- /dev/null
++++ b/tests/speech_chunks.test.mjs
+@@ -0,0 +1,47 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++
++import { splitIntoSpeechChunks, SPEECH_CHUNK_LIMIT } from '../scripts/speech_chunks.mjs';
++
++test('laisse un texte court en un seul énoncé', () => {
++  assert.deepEqual(splitIntoSpeechChunks('Calculer la vitesse.'), ['Calculer la vitesse.']);
++});
++
++test('renvoie une liste vide pour un texte vide', () => {
++  assert.deepEqual(splitIntoSpeechChunks('   '), []);
++});
++
++test('découpe un texte long en morceaux sous la limite sans perdre de mot', () => {
++  const sentence = 'Analyser les documents fournis et proposer une solution argumentée. ';
++  const text = sentence.repeat(8).trim();
++  const chunks = splitIntoSpeechChunks(text);
++
++  assert.ok(chunks.length > 1);
++  for (const chunk of chunks) {
++    assert.ok(chunk.length <= SPEECH_CHUNK_LIMIT, `morceau trop long : ${chunk.length}`);
++  }
++
++  const rejoined = chunks.join(' ').replace(/\s+/gu, ' ').trim();
++  const expected = text.replace(/\s+/gu, ' ').trim();
++  assert.equal(rejoined, expected);
++});
++
++test('découpe une phrase unique plus longue que la limite', () => {
++  const word = 'a'.repeat(50);
++  const text = `${word} ${word} ${word} ${word} ${word} ${word}`;
++  const chunks = splitIntoSpeechChunks(text, 60);
++
++  assert.ok(chunks.length > 1);
++  for (const chunk of chunks) {
++    assert.ok(chunk.length <= 60);
++  }
++});
++
++test('coupe un mot unique plus long que la limite', () => {
++  const chunks = splitIntoSpeechChunks('x'.repeat(250));
++
++  assert.ok(chunks.length >= 2);
++  for (const chunk of chunks) {
++    assert.ok(chunk.length <= SPEECH_CHUNK_LIMIT);
++  }
++});

@@ -23,6 +23,7 @@ await Promise.all([
   copy('scripts/pdf_extractor.mjs'),
   copy('scripts/question_parser.mjs'),
   copy('scripts/session_store.mjs'),
+  copy('scripts/speech_chunks.mjs'),
   copy('node_modules/pdfjs-dist/build/pdf.mjs', 'vendor/pdfjs/pdf.mjs'),
   copy('node_modules/pdfjs-dist/build/pdf.worker.mjs', 'vendor/pdfjs/pdf.worker.mjs'),
   copy('node_modules/jspdf/dist/jspdf.umd.min.js', 'vendor/jspdf/jspdf.umd.min.js')

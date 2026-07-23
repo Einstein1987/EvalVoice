@@ -2,6 +2,7 @@ import * as pdfjsLib from '../vendor/pdfjs/pdf.mjs';
 import { extractPdfDocument } from './pdf_extractor.mjs';
 import { detectQuestions } from './question_parser.mjs';
 import { createSessionStore } from './session_store.mjs';
+import { splitIntoSpeechChunks } from './speech_chunks.mjs';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   new URL('../vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
@@ -467,20 +468,15 @@ class EvalVoiceApp {
     this.stopSpeech({ announce: false });
     this.renderCurrentQuestion();
 
-    const token = ++this.speechToken;
-    const utterance = new SpeechSynthesisUtterance(
-      this.questions[this.currentQuestion]
-    );
-    this.currentUtterance = utterance;
-    utterance.lang = 'fr-FR';
-    utterance.rate = this.speechRate;
+    // La synthèse est découpée en énoncés courts (≤ 200 caractères) : au-delà,
+    // Android/ChromeOS tronque ou échoue silencieusement, notamment sur les
+    // tâches complexes longues. Les morceaux sont lus les uns après les autres.
+    const chunks = splitIntoSpeechChunks(this.questions[this.currentQuestion]);
+    if (chunks.length === 0) return;
 
-    utterance.addEventListener('start', () => {
-      if (token !== this.speechToken) return;
-      this.elements.synthesisIndicator.hidden = false;
-      this.elements.stopSpeech.disabled = false;
-    });
-    utterance.addEventListener('end', () => {
+    const token = ++this.speechToken;
+
+    const finish = () => {
       if (token !== this.speechToken) return;
       this.elements.synthesisIndicator.hidden = true;
       this.elements.stopSpeech.disabled = true;
@@ -497,15 +493,39 @@ class EvalVoiceApp {
           );
         }
       }
-    });
-    utterance.addEventListener('error', () => {
-      if (token !== this.speechToken) return;
-      this.elements.synthesisIndicator.hidden = true;
-      this.elements.stopSpeech.disabled = true;
-      this.currentUtterance = null;
-    });
+    };
 
-    this.synthesis.speak(utterance);
+    const speakChunk = (index) => {
+      if (token !== this.speechToken || index >= chunks.length) return;
+
+      const isFirst = index === 0;
+      const isLast = index === chunks.length - 1;
+      const utterance = new SpeechSynthesisUtterance(chunks[index]);
+      this.currentUtterance = utterance;
+      utterance.lang = 'fr-FR';
+      utterance.rate = this.speechRate;
+
+      utterance.addEventListener('start', () => {
+        if (token !== this.speechToken || !isFirst) return;
+        this.elements.synthesisIndicator.hidden = false;
+        this.elements.stopSpeech.disabled = false;
+      });
+      utterance.addEventListener('end', () => {
+        if (token !== this.speechToken) return;
+        if (isLast) finish();
+        else speakChunk(index + 1);
+      });
+      utterance.addEventListener('error', () => {
+        if (token !== this.speechToken) return;
+        this.elements.synthesisIndicator.hidden = true;
+        this.elements.stopSpeech.disabled = true;
+        this.currentUtterance = null;
+      });
+
+      this.synthesis.speak(utterance);
+    };
+
+    speakChunk(0);
   }
 
   stopSpeech({ announce = true } = {}) {
