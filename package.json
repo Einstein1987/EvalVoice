@@ -1,13 +1,20 @@
 {
   "name": "evalvoice",
-  "version": "1.0.0",
-  "description": "Une application web pour pouvoir effectuer des évaluations à l'oral",
-  "main": "index.js",
-  "dependencies": {
-    "node-fetch": "^2.6.1"
-  },
+  "version": "2.0.0",
+  "private": true,
+  "description": "Application web accessible pour lire des évaluations et transcrire des réponses vocales.",
   "scripts": {
-    "build": "echo 'No build step required'"
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "check": "npm test && node --check scripts/evalvoice.mjs && node --check functions/fetch-doc.mjs",
+    "audit:prod": "npm audit --omit=dev --audit-level=high"
+  },
+  "dependencies": {
+    "jspdf": "4.2.1",
+    "pdfjs-dist": "6.1.200"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "author": "Jérémy VIOLETTE",
   "license": "MIT"

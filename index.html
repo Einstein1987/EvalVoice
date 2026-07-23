@@ -1,328 +1,247 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="EvalVoice - Application d'aide à l'évaluation avec synthèse vocale">
-  <title>EvalVoice - Application d'aide à l'évaluation</title>
-  <link rel="stylesheet" href="styles/styles.css">
-  
-  <!-- Bibliothèques externes -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-  
-  <!-- Modules EvalVoice (DANS CET ORDRE) -->
-  <script src="scripts/state_management.js"></script>
-  <script src="scripts/Browser_Compatibility.js"></script>
-  <script src="scripts/accessibility_improvements.js"></script>
-  <script src="scripts/evalvoice.js"></script>
-</head>
-<body>
-    <div class="container">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="EvalVoice lit les questions d’une évaluation et transcrit les réponses dictées."
+    >
+    <meta name="theme-color" content="#0b5cab">
+    <title>EvalVoice — Évaluations vocales</title>
+    <link rel="stylesheet" href="styles/styles.css">
+    <script defer src="vendor/jspdf/jspdf.umd.min.js"></script>
+    <script type="module" src="scripts/evalvoice.mjs"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#mainContent">Aller au contenu principal</a>
 
+    <main id="mainContent" class="app-shell" aria-busy="false">
+      <section class="workspace" id="appShell" aria-labelledby="appTitle">
         <div class="left-pane">
-            <h1 class="app-title">
-                <img src="./IMG/logo_evalvoice.png" alt="Logo EvalVoice">
-                <span class="title-text">EvalVoice</span>
-            </h1>
-            <p class="subtitle">Transcription de documents Google Docs & PDF</p>
-            
-            <!-- Informations élève -->
-            <div class="input-group">
-                <input type="text" id="studentName" placeholder="Prénom, Nom, Classe" aria-label="Informations élève">
-                <button id="recordStudentInfo" title="Enregistrer vos informations vocalement" disabled>
-                    <span>🎤</span>
-                </button>
+          <header class="app-header">
+            <img
+              class="app-logo"
+              src="IMG/logo_evalvoice.png"
+              width="96"
+              height="96"
+              alt=""
+            >
+            <div>
+              <h1 id="appTitle">EvalVoice</h1>
+              <p>Lire les consignes, dicter les réponses, exporter l’évaluation.</p>
             </div>
-            
-            <!-- Instructions et chargement -->
-            <div id="setup-section" class="centre">
-              <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                  <p style="margin-top: 0;"><strong>Option A :</strong> Lien Google Docs</p>
-                  <input type="text" id="urlInput" placeholder="Collez l'URL ici..." aria-label="URL du document">
-                  <button id="loadDocumentButton" onclick="loadDocument()">
-                      📄 Charger le document en ligne
-                  </button>
-              </div>
-          
-              <div style="margin: 20px 0; border-bottom: 2px dashed #bdc3c7; position: relative;">
-                  <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; color: #7f8c8d; font-weight: bold;">OU</span>
-              </div>
-          
-              <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 20px;">
-                  <p style="margin-top: 0;"><strong>Option B :</strong> Fichier de la tablette/PC</p>
-                  <label class="file-label" for="fileInput">
-                      📁 Choisir un fichier PDF
-                  </label>
-                  <input type="file" id="fileInput" accept="application/pdf" style="display: none;" aria-label="Choisir un fichier PDF">
-                  <div id="fileNameDisplay" class="file-name"></div>
-              </div>
+          </header>
+
+          <div id="notifications" class="notifications" aria-live="polite" aria-atomic="true"></div>
+
+          <div class="student-card">
+            <label for="studentName">Élève et classe</label>
+            <div class="field-with-action">
+              <input
+                id="studentName"
+                type="text"
+                autocomplete="name"
+                placeholder="Prénom, nom, classe"
+              >
+              <button
+                id="recordStudentInfo"
+                class="button button--secondary"
+                type="button"
+                disabled
+              >
+                Dicter
+                <span class="visually-hidden">les informations de l’élève</span>
+              </button>
+            </div>
           </div>
-            
-            <!-- Barre de progression -->
-            <div class="progress-container" id="progressContainer" style="display: none;">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
-                <div class="progress-text" id="progressText">Question 0 sur 0</div>
+
+          <section id="setupSection" class="setup-section" aria-labelledby="setupTitle">
+            <div class="section-heading">
+              <p class="eyebrow">Étape 1</p>
+              <h2 id="setupTitle">Charger l’évaluation</h2>
             </div>
-            
-            <!-- Navigation -->
-            <div class="navigation-buttons">
-                <button id="prevQuestion" disabled>⬅️ Précédente</button>
-                <button id="nextQuestion" disabled>Suivante ➡️</button>
+
+            <div class="source-card">
+              <h3>Depuis Google Docs</h3>
+              <label for="urlInput">Lien du document partagé</label>
+              <input
+                id="urlInput"
+                type="url"
+                inputmode="url"
+                placeholder="https://docs.google.com/document/d/…"
+              >
+              <p class="field-help">
+                Le document doit être accessible avec le lien pour pouvoir être exporté en PDF.
+              </p>
+              <button id="loadDocumentButton" class="button" type="button">
+                Charger le document
+              </button>
             </div>
-            
-            <!-- Affichage de la question -->
-            <div id="questionDisplay" aria-live="polite"></div>
-            
-            <!-- Contrôles de lecture (NOUVEAUX BOUTONS) -->
-            <div class="playback-controls" style="display: flex; justify-content: center; gap: 10px; margin: 15px 0;">
-                <button id="stopSpeech" title="Arrêter la lecture vocale" disabled style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
-                    ⏹️ Stop
+
+            <div class="separator" aria-hidden="true"><span>ou</span></div>
+
+            <div class="source-card">
+              <h3>Depuis cet appareil</h3>
+              <label for="fileInput">Fichier PDF, 20 Mo maximum</label>
+              <input id="fileInput" type="file" accept="application/pdf,.pdf">
+              <p id="fileNameDisplay" class="file-details" aria-live="polite"></p>
+            </div>
+
+            <p id="loadingIndicator" class="loading-status" role="status" hidden></p>
+          </section>
+
+          <section
+            id="evaluationSection"
+            class="evaluation-section"
+            aria-labelledby="questionHeading"
+            hidden
+          >
+            <div id="progressContainer" class="progress-container" hidden>
+              <progress
+                id="progressBar"
+                class="progress-track"
+                max="1"
+                value="1"
+              >
+                1 question sur 1
+              </progress>
+              <p id="progressText" class="progress-text">Question 1 sur 1</p>
+            </div>
+
+            <article class="question-card">
+              <p class="eyebrow">Consigne</p>
+              <h2 id="questionHeading">Question</h2>
+              <p id="questionDisplay" class="question-text" aria-live="polite"></p>
+            </article>
+
+            <div class="control-row" role="group" aria-label="Contrôles de lecture">
+              <button id="replayQuestion" class="button" type="button" disabled>
+                Lire la question
+              </button>
+              <button
+                id="stopSpeech"
+                class="button button--danger button--outline"
+                type="button"
+                disabled
+              >
+                Arrêter la lecture
+              </button>
+            </div>
+
+            <div class="status-row" aria-live="polite">
+              <span id="synthesisIndicator" class="status-chip" hidden>
+                Lecture en cours
+              </span>
+              <span id="recordingIndicator" class="status-chip status-chip--recording" hidden>
+                Dictée en cours
+              </span>
+            </div>
+
+            <div class="response-card">
+              <label for="responseInput">Réponse</label>
+              <textarea
+                id="responseInput"
+                rows="8"
+                placeholder="Dictez ou saisissez ici une réponse développée…"
+              ></textarea>
+              <div class="control-row control-row--left">
+                <button
+                  id="recordResponseButton"
+                  class="button button--secondary"
+                  type="button"
+                  disabled
+                >
+                  Dicter la réponse
                 </button>
-                <button id="replayQuestion" title="Rejouer la question" disabled style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
-                    🔁 Rejouer
+                <button
+                  id="stopRecordingButton"
+                  class="button button--danger"
+                  type="button"
+                  hidden
+                >
+                  Arrêter la dictée
                 </button>
+              </div>
+              <label class="checkbox-row">
+                <input id="autoRecord" type="checkbox">
+                Démarrer automatiquement la dictée après la lecture
+              </label>
             </div>
-            
-            <!-- Réponse -->
-            <div class="input-group">
-                <input type="text" id="responseInput" placeholder="Réponse (vocale ou écrite)" aria-label="Votre réponse">
-                <button id="recordResponseButton" title="Enregistrer votre réponse vocalement" disabled style="display: none;">
-                    <span>🎤</span>
-                </button>
+
+            <div class="settings-row">
+              <span>Vitesse de lecture</span>
+              <button
+                id="speedDown"
+                class="icon-button"
+                type="button"
+                aria-label="Ralentir la lecture"
+              >−</button>
+              <output id="speedDisplay">1.0×</output>
+              <button
+                id="speedUp"
+                class="icon-button"
+                type="button"
+                aria-label="Accélérer la lecture"
+              >+</button>
             </div>
-            
-            <!-- Feedback visuel -->
-            <div class="feedback">
-                <div id="recordingIndicator" style="display: none;">🎙️ Enregistrement...</div>
-                <div id="synthesisIndicator" style="display: none;">🔊 Lecture...</div>
-            </div>
-            
-            <!-- Contrôles de vitesse -->
-            <div class="centre speed-controls">
-                <button id="speedDown" title="Ralentir la lecture">−</button>
-                <span id="speedDisplay">1.0x</span>
-                <button id="speedUp" title="Accélérer la lecture">+</button>   
-            </div>
-            
-            <!-- Export -->
-            <div class="centre">
-                <button id="exportResponses" disabled>💾 Exporter les réponses</button>
-            </div>
+
+            <nav class="navigation-buttons" aria-label="Questions">
+              <button id="prevQuestion" class="button button--outline" type="button" disabled>
+                Question précédente
+              </button>
+              <button id="nextQuestion" class="button button--outline" type="button" disabled>
+                Question suivante
+              </button>
+            </nav>
+          </section>
+
+          <div class="footer-actions">
+            <button id="exportResponses" class="button button--success" type="button" disabled>
+              Exporter les réponses en PDF
+            </button>
+            <button id="newEvaluation" class="button button--outline" type="button" hidden>
+              Nouvelle évaluation
+            </button>
+          </div>
+
+          <aside class="privacy-note" aria-label="Confidentialité et raccourcis">
+            <p>
+              La reconnaissance vocale dépend du navigateur et peut transmettre l’audio à son
+              service de transcription. Aucune réponse n’est envoyée par EvalVoice à son serveur.
+            </p>
+            <p>
+              Raccourcis : <kbd>Alt</kbd> + flèches pour naviguer,
+              <kbd>Espace</kbd> pour relire, <kbd>Échap</kbd> pour arrêter.
+            </p>
+          </aside>
         </div>
-        
-        <!-- Visualisation PDF -->
-        <div class="right-pane">
-            <iframe id="pdfViewer" title="Aperçu du document PDF"></iframe>
+
+        <section class="right-pane" aria-labelledby="previewTitle">
+          <h2 id="previewTitle">Aperçu du sujet</h2>
+          <iframe id="pdfViewer" title="Aperçu du document PDF"></iframe>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="questionReviewDialog" class="review-dialog">
+      <form id="reviewForm" method="dialog">
+        <p class="eyebrow">Vérification nécessaire</p>
+        <h2>Confirmer la ou les questions</h2>
+        <p id="reviewReason"></p>
+        <p class="field-help">
+          Corrigez le texte si besoin. Pour séparer plusieurs questions, placez
+          <code>---</code> sur une ligne isolée.
+        </p>
+        <label for="reviewText">Texte reconnu</label>
+        <textarea id="reviewText" rows="14"></textarea>
+        <div class="dialog-actions">
+          <button id="reviewCancel" class="button button--outline" type="button">
+            Annuler
+          </button>
+          <button class="button" type="submit">Utiliser ce texte</button>
         </div>
-    </div>
-
-  <script>
-    // Fonction pour mettre à jour la barre de progression
-    function updateProgressBar() {
-      if (window.evalVoiceApp) {
-        window.evalVoiceApp.updateProgressBar();
-      }
-    }
-
-    async function loadDocument() {
-      const urlInput = document.getElementById('urlInput').value.trim();
-      
-      if (!urlInput) {
-        if (window.evalVoiceApp) {
-          window.evalVoiceApp.showNotification('⚠️ Veuillez entrer une URL', 'error');
-        }
-        return;
-      }
-      
-      // Extraire l'ID du document
-      const docId = urlInput.match(/[-\w]{25,}/);
-      
-      if (!docId) {
-        if (window.evalVoiceApp) {
-          window.evalVoiceApp.showNotification('⚠️ URL Google Docs invalide', 'error');
-        }
-        return;
-      }
-      
-      const pdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
-      
-      // Afficher un indicateur de chargement
-      const loadButton = document.getElementById('loadDocumentButton');
-      const originalText = loadButton.innerHTML;
-      loadButton.innerHTML = '<span class="loading"></span> Chargement...';
-      loadButton.disabled = true;
-
-      try {
-        if (window.evalVoiceApp) {
-          window.evalVoiceApp.showNotification('⏳ Chargement du document...', 'info');
-        }
-        
-        // Appel à la fonction serverless
-        const response = await fetch('/.netlify/functions/fetch-doc', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ url: pdfUrl })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Erreur HTTP ${response.status}`);
-        }
-
-        const blob = await response.blob();
-        const urlBlob = URL.createObjectURL(blob);
-
-        // Afficher le PDF
-        const documentViewer = document.getElementById('pdfViewer');
-        documentViewer.src = urlBlob;
-
-        // Extraire le texte
-        const pdfData = new Uint8Array(await blob.arrayBuffer());
-        const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-
-        let textContent = '';
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-          const page = await pdfDoc.getPage(i);
-          const textContentObj = await page.getTextContent();
-          textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
-        }
-
-        textContent = textContent.replace(/\s\s+/g, ' ');
-        console.log("Extracted Text Content: ", textContent);
-
-        // Extraire les questions avec la nouvelle méthode
-        if (window.evalVoiceApp) {
-          const success = window.evalVoiceApp.extractQuestions(textContent);
-          
-          if (success) {
-            // Masquer le menu pour activer le mode focus
-            const setupSection = document.getElementById('setup-section');
-            if (setupSection) setupSection.style.display = 'none';
-            
-            // Démarrer l'évaluation
-            window.evalVoiceApp.startEvaluation();
-            window.evalVoiceApp.showNotification(
-              `✅ ${window.evalVoiceApp.questions.length} question${window.evalVoiceApp.questions.length > 1 ? 's' : ''} chargée${window.evalVoiceApp.questions.length > 1 ? 's' : ''}`, 
-              'success'
-            );
-          } else {
-            window.evalVoiceApp.showNotification('⚠️ Aucune question trouvée dans le document', 'error');
-          }
-        }
-        
-      } catch (error) {
-        console.error('Erreur lors du chargement du document:', error);
-        if (window.evalVoiceApp) {
-          window.evalVoiceApp.showNotification(`❌ ${error.message}`, 'error');
-        }
-      } finally {
-        loadButton.innerHTML = originalText;
-        loadButton.disabled = false;
-      }
-    }
-
-    // Message d'aide au chargement
-    window.addEventListener('load', () => {
-      console.log('✅ Page chargée');
-      console.log('💡 Astuce: Appuyez sur Échap pour arrêter la lecture ou l\'enregistrement');
-      console.log('💡 Astuce: Utilisez Alt+Flèches pour naviguer entre les questions');
-    });
-    window.addEventListener('load', () => {
-  console.log('✅ Page chargée');
-  
-  // NOUVEAU : Détection du paramètre URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const docUrl = urlParams.get('doc');
-  
-  if (docUrl) {
-    // Si un lien est fourni, on remplit le champ et on lance le chargement
-    document.getElementById('urlInput').value = docUrl;
-    loadDocument(); 
-  }
-});
-    // --- GESTION DU FICHIER PDF LOCAL ---
-document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-
-function handleFileSelect(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // Afficher le nom du fichier sélectionné
-  const nameDisplay = document.getElementById('fileNameDisplay');
-  if (nameDisplay) {
-    nameDisplay.textContent = file.name;
-    nameDisplay.style.display = 'block';
-  }
-  
-  if (window.evalVoiceApp) {
-    window.evalVoiceApp.showNotification('⏳ Lecture du PDF en cours...', 'info');
-  }
-
-  // Activer le mode focus en masquant les menus de démarrage
-  const setupSection = document.getElementById('setup-section');
-  if (setupSection) setupSection.style.display = 'none';
-  
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const pdfData = e.target.result;
-    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
-    
-    loadingTask.promise.then(function(pdf) {
-      let textContent = '';
-      let loadPage = (pageNumber) => {
-        pdf.getPage(pageNumber).then(function(page) {
-          page.getTextContent().then(function(textContentObj) {
-            textContent += textContentObj.items.map(item => item.str).join(' ') + ' ';
-            if (pageNumber < pdf.numPages) {
-              loadPage(pageNumber + 1); // Charger la page suivante
-            } else {
-              textContent = textContent.replace(/\s\s+/g, ' ');
-              
-              // Extraire les questions
-              if (window.evalVoiceApp) {
-                const success = window.evalVoiceApp.extractQuestions(textContent);
-                
-                if (success) {
-                  // Lancer l'évaluation automatiquement
-                  window.evalVoiceApp.startEvaluation();
-                  window.evalVoiceApp.showNotification(
-                    `✅ ${window.evalVoiceApp.questions.length} question(s) trouvée(s)`, 
-                    'success'
-                  );
-                } else {
-                  window.evalVoiceApp.showNotification('⚠️ Aucune question trouvée', 'error');
-                  if (setupSection) setupSection.style.display = 'block'; // Réafficher le menu si erreur
-                }
-              }
-            }
-          });
-        });
-      };
-      loadPage(1); // Lancer la lecture de la page 1
-      
-      // Afficher le PDF visuellement dans l'iframe de droite
-      document.getElementById('pdfViewer').src = URL.createObjectURL(new Blob([pdfData], { type: 'application/pdf' }));
-    }).catch(err => {
-      console.error('Erreur PDF.js:', err);
-      if (window.evalVoiceApp) window.evalVoiceApp.showNotification('❌ Erreur de lecture du fichier PDF', 'error');
-      if (setupSection) setupSection.style.display = 'block';
-    });
-  };
-  reader.readAsArrayBuffer(file);
-}
-  </script>
-  <div class="app-footer-minimal">
-    <p>
-        Développé par <strong>Jérémy VIOLETTE</strong> • 
-        <a href="https://github.com/Einstein1987/EvalVoice/blob/main/LICENSE" target="_blank">Licence MIT</a> • 
-        <a href="https://github.com/Einstein1987/EvalVoice" target="_blank">Code source</a>
-    </p>
-</div>
-</body>
+      </form>
+    </dialog>
+  </body>
 </html>
