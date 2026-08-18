@@ -46,3 +46,13 @@ test('le build embarque les deux polices Unicode et leur licence', () => {
   assert.match(build, /DejaVu-LICENSE\.txt/u);
   assert.match(build, /scripts\/pdf_export\.mjs/u);
 });
+
+
+test('le pied de page identifie le développeur, la licence et le code source', () => {
+  assert.match(html, /<footer[^>]+class="app-footer"/u);
+  assert.match(html, /Développé par <strong>Jérémy VIOLETTE<\/strong>/u);
+  assert.match(html, /src="IMG\/logo_dev\.png"/u);
+  assert.match(html, /EvalVoice\/blob\/main\/LICENSE/u);
+  assert.match(html, />Licence MIT<\/a>/u);
+  assert.match(html, />Code source<\/a>/u);
+});
