@@ -55,6 +55,8 @@ test('le pied de page identifie le développeur, la licence et le code source', 
   assert.match(html, /EvalVoice\/blob\/main\/LICENSE/u);
   assert.match(html, />Licence MIT<\/a>/u);
   assert.match(html, />Code source<\/a>/u);
+});
+
 test('les PDF locaux et Google Docs partagent la limite de 20 Mo', () => {
   assert.match(app, /MAX_LOCAL_PDF_SIZE\s*=\s*20\s*\*\s*1024\s*\*\s*1024/u);
   assert.match(app, /MAX_REMOTE_PDF_SIZE\s*=\s*20\s*\*\s*1024\s*\*\s*1024/u);
