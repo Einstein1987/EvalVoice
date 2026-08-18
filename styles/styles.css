@@ -633,6 +633,42 @@ code {
   margin-bottom: 0;
 }
 
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: min(96rem, 100%);
+  margin: 1rem auto 0;
+  border-top: 0.0625rem solid var(--border);
+  padding: 1rem 1.25rem;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.app-footer p {
+  margin: 0;
+}
+
+.app-footer a {
+  color: var(--primary);
+  font-weight: 700;
+  text-underline-offset: 0.18rem;
+}
+
+.app-footer a:hover {
+  color: var(--primary-hover);
+}
+
+.app-footer__avatar {
+  width: auto;
+  height: 3.25rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
 .review-dialog {
   width: min(44rem, calc(100% - 2rem));
   max-height: calc(100vh - 2rem);
@@ -709,6 +745,13 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .app-footer {
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0;
+    padding-block: 1.25rem;
+  }
+
   .control-row .button,
   .dialog-actions .button {
     width: 100%;
@@ -749,7 +792,8 @@ code {
   .control-row,
   .navigation-buttons,
   .footer-actions,
-  .privacy-note {
+  .privacy-note,
+  .app-footer {
     display: none;
   }
 }
