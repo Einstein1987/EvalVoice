@@ -1,7 +1,8 @@
-const MAX_FILE_SIZE = 4 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 25_000;
 const MAX_REQUEST_BODY_SIZE = 2_048;
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{20,128}$/u;
+const MAX_FILE_SIZE_LABEL = '20 Mo';
 
 class PublicError extends Error {
   constructor(message, status = 400) {
@@ -88,14 +89,82 @@ function jsonResponse(payload, status, headers = {}) {
   });
 }
 
-function mergeChunks(chunks, totalLength) {
-  const combined = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.byteLength;
+function declaredContentLength(response) {
+  const value = response.headers.get('content-length');
+  if (!value || !/^\d+$/u.test(value)) return null;
+  const size = Number(value);
+  return Number.isSafeInteger(size) ? size : null;
+}
+
+/**
+ * Transmet le corps Google Docs sans le mettre entièrement en mémoire.
+ * Le minuteur reste actif jusqu'à la fin de la lecture et le flux est coupé
+ * dès que la limite de sécurité est franchie.
+ */
+function createGuardedPdfStream(
+  upstreamBody,
+  {
+    maxFileSize,
+    abortController,
+    timeout
   }
-  return combined;
+) {
+  const reader = upstreamBody.getReader();
+  let totalLength = 0;
+  let finished = false;
+
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timeout);
+  };
+
+  return new ReadableStream({
+    async pull(streamController) {
+      try {
+        const { value, done } = await reader.read();
+        if (done) {
+          cleanup();
+          if (totalLength === 0) {
+            streamController.error(
+              new PublicError('Google Docs a renvoyé un document vide.', 502)
+            );
+            return;
+          }
+          streamController.close();
+          return;
+        }
+        if (!value) return;
+
+        totalLength += value.byteLength;
+        if (totalLength > maxFileSize) {
+          cleanup();
+          abortController.abort();
+          await reader.cancel();
+          streamController.error(
+            new PublicError(
+              `Le PDF dépasse la taille maximale de ${MAX_FILE_SIZE_LABEL}.`,
+              413
+            )
+          );
+          return;
+        }
+        streamController.enqueue(value);
+      } catch (error) {
+        cleanup();
+        streamController.error(
+          error.name === 'AbortError'
+            ? new PublicError('Le téléchargement a dépassé 25 secondes.', 504)
+            : error
+        );
+      }
+    },
+    async cancel(reason) {
+      cleanup();
+      abortController.abort();
+      await reader.cancel(reason);
+    }
+  });
 }
 
 export async function downloadGooglePdf(
@@ -108,6 +177,7 @@ export async function downloadGooglePdf(
 ) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let streamCreated = false;
 
   try {
     const response = await fetchImplementation(googlePdfUrl(documentId), {
@@ -137,42 +207,32 @@ export async function downloadGooglePdf(
       );
     }
 
-    const declaredSize = Number(response.headers.get('content-length'));
-    if (Number.isFinite(declaredSize) && declaredSize > maxFileSize) {
-      throw new PublicError('Le PDF dépasse la taille maximale de 4 Mo.', 413);
+    const declaredSize = declaredContentLength(response);
+    if (declaredSize !== null && declaredSize > maxFileSize) {
+      throw new PublicError(
+        `Le PDF dépasse la taille maximale de ${MAX_FILE_SIZE_LABEL}.`,
+        413
+      );
     }
     if (!response.body) {
       throw new PublicError('Google Docs a renvoyé un document vide.', 502);
     }
 
-    const reader = response.body.getReader();
-    const chunks = [];
-    let totalLength = 0;
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-
-      totalLength += value.byteLength;
-      if (totalLength > maxFileSize) {
-        await reader.cancel();
-        throw new PublicError('Le PDF dépasse la taille maximale de 4 Mo.', 413);
-      }
-      chunks.push(value);
-    }
-
-    if (totalLength === 0) {
-      throw new PublicError('Google Docs a renvoyé un document vide.', 502);
-    }
-    return mergeChunks(chunks, totalLength);
+    const body = createGuardedPdfStream(response.body, {
+      maxFileSize,
+      abortController: controller,
+      timeout
+    });
+    streamCreated = true;
+    return { body, declaredSize };
   } catch (error) {
     if (error.name === 'AbortError') {
       throw new PublicError('Le téléchargement a dépassé 25 secondes.', 504);
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    // Une fois le flux rendu à l'appelant, son cycle de vie gère le minuteur.
+    if (!streamCreated) clearTimeout(timeout);
   }
 }
 
@@ -210,7 +270,7 @@ export default async function handler(request) {
     }
 
     const pdf = await downloadGooglePdf(body.documentId);
-    return new Response(pdf, {
+    return new Response(pdf.body, {
       status: 200,
       headers: {
         ...headers,

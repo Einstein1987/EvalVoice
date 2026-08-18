@@ -11,6 +11,10 @@ import handler, {
 
 const documentId = '1AbCdEfGhIjKlMnOpQrStUvWxYz_123456';
 
+async function readBytes(stream) {
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
 test('valide strictement un identifiant Google Docs', () => {
   assert.equal(validateDocumentId(documentId), true);
   assert.equal(validateDocumentId('../etc/passwd'), false);
@@ -64,7 +68,11 @@ test('télécharge un PDF en respectant le type MIME et la taille', async () => 
   });
 
   assert.equal(requestedUrl, googlePdfUrl(documentId));
-  assert.deepEqual([...pdf], [0x25, 0x50, 0x44, 0x46]);
+  assert.equal(pdf.declaredSize, 4);
+  assert.deepEqual(
+    [...await readBytes(pdf.body)],
+    [0x25, 0x50, 0x44, 0x46]
+  );
 });
 
 test('refuse un téléchargement qui annonce une taille excessive', async () => {
@@ -73,11 +81,75 @@ test('refuse un téléchargement qui annonce une taille excessive', async () => 
       new Response(new Uint8Array([1]), {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Length': '5000000'
+          'Content-Length': String(21 * 1024 * 1024)
         }
       })
     ),
     /taille maximale/u
+  );
+});
+
+test('accepte et diffuse un PDF Google Docs de 4,6 Mo', async () => {
+  const bytes = new Uint8Array(4_600_000);
+  bytes.set([0x25, 0x50, 0x44, 0x46]);
+  const pdf = await downloadGooglePdf(documentId, async () =>
+    new Response(bytes, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Length': String(bytes.byteLength)
+      }
+    })
+  );
+
+  const received = await readBytes(pdf.body);
+  assert.equal(pdf.declaredSize, 4_600_000);
+  assert.equal(received.byteLength, 4_600_000);
+  assert.deepEqual([...received.slice(0, 4)], [0x25, 0x50, 0x44, 0x46]);
+});
+
+test('interrompt un flux sans taille déclarée quand il dépasse la limite', async () => {
+  const pdf = await downloadGooglePdf(
+    documentId,
+    async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(6));
+            controller.enqueue(new Uint8Array(6));
+            controller.close();
+          }
+        }),
+        { headers: { 'Content-Type': 'application/pdf' } }
+      ),
+    { maxFileSize: 10 }
+  );
+
+  await assert.rejects(readBytes(pdf.body), /taille maximale/u);
+});
+
+test('le handler renvoie le PDF sous forme de flux lisible', async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () =>
+    new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]), {
+      headers: { 'Content-Type': 'application/pdf' }
+    });
+
+  const response = await handler(
+    new Request('https://evalvoice.test/api/fetch-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId })
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/pdf');
+  assert.deepEqual(
+    [...new Uint8Array(await response.arrayBuffer())],
+    [0x25, 0x50, 0x44, 0x46]
   );
 });
 

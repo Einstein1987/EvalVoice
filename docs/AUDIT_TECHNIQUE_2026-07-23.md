@@ -34,7 +34,7 @@ La refonte corrige ces points sans ajouter de stockage serveur des réponses.
 | Haute | Une tâche complexe non numérotée devenait le document entier. | Détection d’un verbe de Bloom en début de ligne ; le gras augmente fortement la confiance. |
 | Haute | Des entrées de barème comme `1) 2 points` pouvaient être prises pour des questions. | Score par séquence, contenu interrogatif, verbes de Bloom, contexte négatif et arrêt avant les sections de barème. |
 | Haute | Le proxy acceptait des origines par suffixe, échouait en mode ouvert et utilisait un rate limiter en mémoire. | Origines exactes, refus par défaut, seule donnée acceptée : un identifiant Google Docs, rate limit natif Netlify. |
-| Haute | La taille distante de 10 Mo ne tenait pas compte des limites de réponse d’une fonction Netlify. | Limite de 4 Mo contrôlée avant et pendant le flux. |
+| Haute | La taille distante de 10 Mo ne tenait pas compte des limites de réponse d’une fonction Netlify. | Réponse diffusée en streaming, avec une limite de 20 Mo contrôlée avant et pendant le flux. |
 | Haute | L’ancien proxy permissif restait déployable. | Suppression de `fetch-doc_old.js` et remplacement par une seule fonction moderne. |
 | Moyenne | La reconnaissance vocale s’arrêtait au premier résultat final et écrasait la réponse. | Mode continu, accumulation des segments, zone multiligne et arrêt explicite. |
 | Moyenne | L’application exigeait le microphone au démarrage et s’arrêtait si l’API vocale manquait. | Permission demandée uniquement après action ; fallback clavier complet. |

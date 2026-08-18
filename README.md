@@ -30,7 +30,8 @@ une acceptation automatique ; sinon EvalVoice demande une confirmation.
 
 ## Utilisation
 
-- Charger un PDF local de 20 Mo maximum, ou coller un lien Google Docs.
+- Charger un PDF local de 20 Mo maximum, ou coller un lien Google Docs dont
+  l’export PDF ne dépasse pas 20 Mo.
 - Vérifier la question reconnue si EvalVoice le demande.
 - Utiliser « Lire la question », puis saisir ou dicter la réponse.
 - Pour une réponse longue, la dictée continue jusqu’au clic sur
